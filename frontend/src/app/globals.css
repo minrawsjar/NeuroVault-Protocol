@@ -1,0 +1,122 @@
+@import "tailwindcss";
+
+:root {
+  --background: #FFFDF7;
+  --foreground: #1a1a1a;
+  --brand-yellow: #FFE156;
+  --brand-pink: #FF6B9D;
+  --brand-lime: #C8FF56;
+  --brand-cyan: #56E8FF;
+  --brand-purple: #B388FF;
+  --brand-orange: #FF9F43;
+  --brand-red: #FF5252;
+  --brand-green: #4CAF50;
+  --border: #1a1a1a;
+  --shadow: #1a1a1a;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-brand-yellow: var(--brand-yellow);
+  --color-brand-pink: var(--brand-pink);
+  --color-brand-lime: var(--brand-lime);
+  --color-brand-cyan: var(--brand-cyan);
+  --color-brand-purple: var(--brand-purple);
+  --color-brand-orange: var(--brand-orange);
+  --color-brand-red: var(--brand-red);
+  --color-brand-green: var(--brand-green);
+  --color-border: var(--border);
+  --color-shadow: var(--shadow);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+}
+
+/* Neobrutalist base card */
+.neo-card {
+  border: 3px solid var(--border);
+  box-shadow: 6px 6px 0px var(--shadow);
+  background: #fff;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+.neo-card:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 8px 8px 0px var(--shadow);
+}
+
+/* Neobrutalist button */
+.neo-btn {
+  border: 3px solid var(--border);
+  box-shadow: 4px 4px 0px var(--shadow);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+  cursor: pointer;
+}
+.neo-btn:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0px var(--shadow);
+}
+.neo-btn:active {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0px var(--shadow);
+}
+
+/* Neobrutalist badge/tag */
+.neo-badge {
+  border: 2px solid var(--border);
+  box-shadow: 2px 2px 0px var(--shadow);
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  padding: 2px 8px;
+  display: inline-block;
+}
+
+/* Progress bar */
+.neo-progress-track {
+  border: 3px solid var(--border);
+  background: #fff;
+  height: 28px;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+}
+::-webkit-scrollbar-track {
+  background: var(--background);
+  border-left: 3px solid var(--border);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--brand-yellow);
+  border: 2px solid var(--border);
+}
+
+/* Pulsing dot animation */
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(1.3); }
+}
+.animate-pulse-dot {
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+/* Typing cursor for AI reasoning */
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+.animate-blink {
+  animation: blink 1s step-end infinite;
+}
