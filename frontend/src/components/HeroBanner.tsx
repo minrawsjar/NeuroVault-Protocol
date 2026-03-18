@@ -1,10 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { Brain, ArrowRight, Shield, Eye, Cpu } from "lucide-react";
 
 export default function HeroBanner() {
   return (
-    <section className="neo-card !bg-foreground text-background p-6 md:p-8 relative overflow-hidden">
+    <section className="neo-card p-6 md:p-8 relative overflow-hidden" style={{ background: "var(--foreground)", color: "var(--background)" }}>
       {/* Decorative grid */}
       <div className="absolute inset-0 opacity-5">
         <div
@@ -41,10 +42,10 @@ export default function HeroBanner() {
           </div>
 
           <div className="flex flex-col gap-2 shrink-0">
-            <button className="neo-btn px-5 py-3 text-sm bg-brand-yellow text-foreground flex items-center gap-2">
+            <Link href="/stake" className="neo-btn px-5 py-3 text-sm bg-brand-yellow text-foreground flex items-center gap-2">
               <span>Stake & Govern</span>
               <ArrowRight className="w-4 h-4" strokeWidth={2.5} />
-            </button>
+            </Link>
             <button className="neo-btn px-5 py-3 text-sm bg-brand-pink text-foreground flex items-center gap-2">
               <span>View Agent Logs</span>
               <Eye className="w-4 h-4" strokeWidth={2.5} />

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
+import { Providers } from "@/lib/providers";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -28,15 +29,18 @@ export default function RootLayout({
     <html
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col bg-background">
-        <Navbar />
-        <main className="flex-1">{children}</main>
-        <footer className="border-t-3 border-border bg-white p-4 text-center" style={{ borderTopWidth: "3px" }}>
-          <p className="text-[10px] font-bold uppercase tracking-widest text-foreground/40">
-            NeuroVault Protocol · Polkadot Hub · Built for Polkadot Solidity Hackathon & Synthesis 2025
-          </p>
-        </footer>
+        <Providers>
+          <Navbar />
+          <main className="flex-1">{children}</main>
+          <footer className="bg-surface p-4 text-center" style={{ borderTopWidth: "3px", borderTopStyle: "solid", borderTopColor: "var(--border)" }}>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-foreground/40">
+              NeuroVault Protocol · Polkadot Hub · Built for Polkadot Solidity Hackathon & Synthesis 2025
+            </p>
+          </footer>
+        </Providers>
       </body>
     </html>
   );

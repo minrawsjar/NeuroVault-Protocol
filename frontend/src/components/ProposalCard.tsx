@@ -62,7 +62,7 @@ export default function ProposalCard({ proposal }: Props) {
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap mb-1">
               <span className={`neo-badge ${status.bg}`}>{status.label}</span>
-              <span className="neo-badge bg-white">
+              <span className="neo-badge bg-surface">
                 <ActionIcon className="w-3 h-3 inline mr-1" />
                 {proposal.proposedAction.type}
               </span>
@@ -135,7 +135,7 @@ export default function ProposalCard({ proposal }: Props) {
                 IPFS: {proposal.ipfsHash} <ExternalLink className="w-3 h-3" />
               </a>
             </div>
-            <div className="bg-foreground text-background p-4 font-mono text-xs leading-relaxed whitespace-pre-wrap border-3 border-border" style={{ borderWidth: "3px" }}>
+            <div className="bg-foreground text-background p-4 font-mono text-xs leading-relaxed whitespace-pre-wrap" style={{ border: "3px solid var(--border)" }}>
               {proposal.reasoning}
               {proposal.status === "active" && (
                 <span className="animate-blink ml-1">▌</span>

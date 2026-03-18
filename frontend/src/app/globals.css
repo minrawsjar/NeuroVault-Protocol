@@ -1,90 +1,108 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
-  --background: #FFFDF7;
-  --foreground: #1a1a1a;
-  --brand-yellow: #FFE156;
-  --brand-pink: #FF6B9D;
-  --brand-lime: #C8FF56;
-  --brand-cyan: #56E8FF;
-  --brand-purple: #B388FF;
-  --brand-orange: #FF9F43;
-  --brand-red: #FF5252;
-  --brand-green: #4CAF50;
-  --border: #1a1a1a;
-  --shadow: #1a1a1a;
+  --nv-bg: #FFFDF7;
+  --nv-fg: #1a1a1a;
+  --nv-surface: #ffffff;
+  --nv-surface-alt: #f5f3ee;
+  --nv-border: #1a1a1a;
+  --nv-shadow: #1a1a1a;
+  --nv-yellow: #FFE156;
+  --nv-pink: #FF6B9D;
+  --nv-lime: #C8FF56;
+  --nv-cyan: #56E8FF;
+  --nv-purple: #B388FF;
+  --nv-orange: #FF9F43;
+  --nv-red: #FF5252;
+  --nv-green: #4CAF50;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-brand-yellow: var(--brand-yellow);
-  --color-brand-pink: var(--brand-pink);
-  --color-brand-lime: var(--brand-lime);
-  --color-brand-cyan: var(--brand-cyan);
-  --color-brand-purple: var(--brand-purple);
-  --color-brand-orange: var(--brand-orange);
-  --color-brand-red: var(--brand-red);
-  --color-brand-green: var(--brand-green);
-  --color-border: var(--border);
-  --color-shadow: var(--shadow);
+.dark {
+  --nv-bg: #0d0d0d;
+  --nv-fg: #f0f0f0;
+  --nv-surface: #1a1a1a;
+  --nv-surface-alt: #252525;
+  --nv-border: #f0f0f0;
+  --nv-shadow: #f0f0f0;
+}
+
+@theme {
+  --color-background: var(--nv-bg);
+  --color-foreground: var(--nv-fg);
+  --color-surface: var(--nv-surface);
+  --color-surface-alt: var(--nv-surface-alt);
+  --color-brand-yellow: var(--nv-yellow);
+  --color-brand-pink: var(--nv-pink);
+  --color-brand-lime: var(--nv-lime);
+  --color-brand-cyan: var(--nv-cyan);
+  --color-brand-purple: var(--nv-purple);
+  --color-brand-orange: var(--nv-orange);
+  --color-brand-red: var(--nv-red);
+  --color-brand-green: var(--nv-green);
+  --color-border: var(--nv-border);
+  --color-shadow: var(--nv-shadow);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--nv-bg);
+  color: var(--nv-fg);
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  transition: background 0.2s ease, color 0.2s ease;
 }
 
 /* Neobrutalist base card */
 .neo-card {
-  border: 3px solid var(--border);
-  box-shadow: 6px 6px 0px var(--shadow);
-  background: #fff;
-  transition: transform 0.1s ease, box-shadow 0.1s ease;
+  border: 3px solid var(--nv-border);
+  box-shadow: 6px 6px 0px var(--nv-shadow);
+  background: var(--nv-surface);
+  transition: transform 0.1s ease, box-shadow 0.1s ease, background 0.2s ease;
 }
 .neo-card:hover {
   transform: translate(-2px, -2px);
-  box-shadow: 8px 8px 0px var(--shadow);
+  box-shadow: 8px 8px 0px var(--nv-shadow);
 }
 
 /* Neobrutalist button */
 .neo-btn {
-  border: 3px solid var(--border);
-  box-shadow: 4px 4px 0px var(--shadow);
+  border: 3px solid var(--nv-border);
+  box-shadow: 4px 4px 0px var(--nv-shadow);
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   transition: transform 0.1s ease, box-shadow 0.1s ease;
   cursor: pointer;
+  color: #1a1a1a;
 }
 .neo-btn:hover {
   transform: translate(-2px, -2px);
-  box-shadow: 6px 6px 0px var(--shadow);
+  box-shadow: 6px 6px 0px var(--nv-shadow);
 }
 .neo-btn:active {
   transform: translate(2px, 2px);
-  box-shadow: 2px 2px 0px var(--shadow);
+  box-shadow: 2px 2px 0px var(--nv-shadow);
 }
 
 /* Neobrutalist badge/tag */
 .neo-badge {
-  border: 2px solid var(--border);
-  box-shadow: 2px 2px 0px var(--shadow);
+  border: 2px solid var(--nv-border);
+  box-shadow: 2px 2px 0px var(--nv-shadow);
   font-weight: 700;
   text-transform: uppercase;
   font-size: 0.7rem;
   letter-spacing: 0.08em;
   padding: 2px 8px;
   display: inline-block;
+  color: #1a1a1a;
 }
 
 /* Progress bar */
 .neo-progress-track {
-  border: 3px solid var(--border);
-  background: #fff;
+  border: 3px solid var(--nv-border);
+  background: var(--nv-surface);
   height: 28px;
   position: relative;
   overflow: hidden;
@@ -95,12 +113,12 @@ body {
   width: 10px;
 }
 ::-webkit-scrollbar-track {
-  background: var(--background);
-  border-left: 3px solid var(--border);
+  background: var(--nv-bg);
+  border-left: 3px solid var(--nv-border);
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--brand-yellow);
-  border: 2px solid var(--border);
+  background: var(--nv-yellow);
+  border: 2px solid var(--nv-border);
 }
 
 /* Pulsing dot animation */
@@ -119,4 +137,42 @@ body {
 }
 .animate-blink {
   animation: blink 1s step-end infinite;
+}
+
+/* Tab styles */
+.neo-tab {
+  border: 3px solid var(--nv-border);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 8px 16px;
+  cursor: pointer;
+  background: var(--nv-surface);
+  transition: background 0.1s ease;
+}
+.neo-tab.active {
+  background: var(--nv-yellow);
+  box-shadow: 3px 3px 0px var(--nv-shadow);
+  color: #1a1a1a;
+}
+.neo-tab:not(.active):hover {
+  background: var(--nv-surface-alt);
+}
+
+/* Input */
+.neo-input {
+  border: 3px solid var(--nv-border);
+  background: var(--nv-surface);
+  color: var(--nv-fg);
+  font-weight: 700;
+  padding: 10px 14px;
+  outline: none;
+  transition: box-shadow 0.1s ease;
+}
+.neo-input:focus {
+  box-shadow: 4px 4px 0px var(--nv-shadow);
+}
+.neo-input::placeholder {
+  color: var(--nv-fg);
+  opacity: 0.3;
 }
