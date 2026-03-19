@@ -193,7 +193,8 @@ export class VaultContract {
     const contract = new ethers.Contract(this.contractAddress, PROPOSE_ABI, this.ethersSigner);
 
     const feeData = await this.ethersProvider.getFeeData();
-    const gasPrice = feeData.gasPrice || ethers.parseUnits("1", "gwei");
+    // Paseo requires higher gas prices (base fee can be 1000+ gwei)
+    const gasPrice = feeData.gasPrice || ethers.parseUnits("2000", "gwei");
 
     const tx = await contract.propose(
       proposal.ipfsHash,
