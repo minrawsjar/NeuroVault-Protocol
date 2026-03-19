@@ -54,3 +54,9 @@ Thumbs.db
 *.log
 *.lock
 !package-lock.json
+
+# Foundry
+contracts/cache/
+contracts/out/
+contracts/lib/
+!contracts/lib/.gitkeep
