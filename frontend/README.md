@@ -29,13 +29,23 @@ Optional (Lit Protocol sealing access control):
 
 LIT_AUTHORIZED_ADDRESSES=0xabc...,0xdef...
 
-Vault connection (dynamic status source):
+Vault connection (live source):
 
-VAULT_DATA_SOURCE=mock
-# set to `http` when vault backend is live
+VAULT_DATA_SOURCE=onchain
+VAULT_RPC_URL=https://asset-hub-polkadot-eth-rpc.polkadot.io
+CONTRACT_ADDRESS=0xYourDeployedVault
+
+# Optional API integrations
+AGENT_API_URL=http://127.0.0.1:3001
+CROSSCHAIN_API_URL=https://your-crosschain-api.example.com/queue
+
+# Optional HTTP vault adapter path
 VAULT_STATUS_URL=https://your-vault-api.example.com/status
 
-Without this key, the bot route falls back to local simulated responses.
+# Keep false for production-like behavior
+ALLOW_LOCAL_FALLBACK=false
+
+With ALLOW_LOCAL_FALLBACK=false, endpoints return integration errors instead of local mock data.
 
 Bot responses are also sealed with Lit when at least one authorized address is available
 (requester wallet address and/or `LIT_AUTHORIZED_ADDRESSES`).

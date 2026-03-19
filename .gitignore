@@ -59,4 +59,5 @@ Thumbs.db
 contracts/cache/
 contracts/out/
 contracts/lib/
+contracts/artifacts/
 !contracts/lib/.gitkeep

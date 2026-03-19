@@ -229,13 +229,28 @@ export class NeuroVaultAgent {
           swap: 0, stake: 1, transfer: 2, rebalance: 3, none: 4,
         };
 
+        const tokens = await this.contract.getVaultTokens();
+        const normalizedToken = (reasoning.token || "DOT").toUpperCase();
+        const tokenAddress = normalizedToken === "USDC" ? tokens.usdcToken : tokens.dotToken;
+        const normalizedTarget = String(reasoning.targetToken || "").trim();
+        const targetTokenAddress =
+          normalizedTarget.toUpperCase() === "USDC"
+            ? tokens.usdcToken
+            : normalizedTarget.toUpperCase() === "DOT"
+              ? tokens.dotToken
+              : /^0x[a-fA-F0-9]{40}$/.test(normalizedTarget)
+                ? normalizedTarget
+                : "0x0000000000000000000000000000000000000000";
+        const amountMultiplier = normalizedToken === "USDC" ? 1e6 : 1e18;
+        const amountParsed = Number(reasoning.amount);
+
         const txHash = await this.contract.submitProposal({
           ipfsHash,
           actionType: actionTypes[reasoning.action] ?? 4,
           description: reasoning.description,
-          amount: BigInt(parseFloat(reasoning.amount) * 10 ** 18),
-          token: reasoning.token === "DOT" ? "0x..." : "0x...", // Token addresses
-          targetToken: reasoning.targetToken || "0x0000000000000000000000000000000000000000",
+          amount: BigInt(Math.max(0, Math.floor((Number.isFinite(amountParsed) ? amountParsed : 0) * amountMultiplier))),
+          token: tokenAddress,
+          targetToken: targetTokenAddress,
           confidence: Math.round(reasoning.confidence * 100),
         });
 

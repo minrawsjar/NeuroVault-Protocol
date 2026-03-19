@@ -1,11 +1,12 @@
 import { createPublicClient, createWalletClient, http, parseAbi, keccak256, toBytes } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { mainnet } from "viem/chains";
 
 const VAULT_ABI = parseAbi([
   "function getTreasuryState() view returns (uint256 totalValue, uint256 dotBalance, uint256 usdcBalance, uint256 activeProposals, uint256 apy)",
-  "function getActiveGoals() view returns (tuple(uint256 id, string text, uint8 status)[])",
-  "function getRecentProposals(uint256 count) view returns (tuple(uint256 id, uint8 status, string outcome)[])",
+  "function getActiveGoals() view returns ((uint256 id, string text, uint8 status)[])",
+  "function getRecentProposals(uint256 count) view returns ((uint256 id, uint8 status, string outcome)[])",
+  "function dotToken() view returns (address)",
+  "function usdcToken() view returns (address)",
   "function spendingLimitUsd() view returns (uint256)",
   "function getApprovedTargets() view returns (address[])",
   "function propose(string calldata ipfsHash, uint8 actionType, string calldata description, uint256 amount, address token, address targetToken, uint256 confidence) external returns (uint256)",
@@ -47,10 +48,16 @@ export interface GovernanceConstraints {
   approvedTargets: string[];
 }
 
+export interface VaultTokens {
+  dotToken: string;
+  usdcToken: string;
+}
+
 export class VaultContract {
   private publicClient: ReturnType<typeof createPublicClient>;
   private walletClient?: ReturnType<typeof createWalletClient>;
   private contractAddress: string;
+  private cachedTokens?: VaultTokens;
 
   constructor(
     rpcUrl: string,
@@ -60,7 +67,6 @@ export class VaultContract {
     this.contractAddress = contractAddress;
 
     this.publicClient = createPublicClient({
-      chain: mainnet,
       transport: http(rpcUrl),
     });
 
@@ -68,10 +74,35 @@ export class VaultContract {
       const account = privateKeyToAccount(privateKey as `0x${string}`);
       this.walletClient = createWalletClient({
         account,
-        chain: mainnet,
         transport: http(rpcUrl),
       });
     }
+  }
+
+  async getVaultTokens(): Promise<VaultTokens> {
+    if (this.cachedTokens) {
+      return this.cachedTokens;
+    }
+
+    const [dotToken, usdcToken] = await Promise.all([
+      this.publicClient.readContract({
+        address: this.contractAddress as `0x${string}`,
+        abi: VAULT_ABI,
+        functionName: "dotToken",
+      }) as Promise<string>,
+      this.publicClient.readContract({
+        address: this.contractAddress as `0x${string}`,
+        abi: VAULT_ABI,
+        functionName: "usdcToken",
+      }) as Promise<string>,
+    ]);
+
+    this.cachedTokens = {
+      dotToken: dotToken.toLowerCase(),
+      usdcToken: usdcToken.toLowerCase(),
+    };
+
+    return this.cachedTokens;
   }
 
   async getTreasuryState(): Promise<TreasuryState> {
@@ -126,9 +157,9 @@ export class VaultContract {
 
     const hash = await this.walletClient.writeContract({
       account: this.walletClient.account ?? null,
+      chain: this.walletClient.chain ?? null,
       address: this.contractAddress as `0x${string}`,
       abi: VAULT_ABI,
-      chain: mainnet,
       functionName: "propose",
       args: [
         proposal.ipfsHash,

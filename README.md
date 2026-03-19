@@ -76,7 +76,7 @@ NeuroVault introduces a **stateless AI treasury agent** with auditable lifecycle
 
 | Layer | Responsibility |
 |---|---|
-| `frontend/` | Dashboard, bot console, governance UX, status APIs (demo + integration hooks) |
+| `frontend/` | Dashboard, bot console, governance UX, status APIs (production integrations + adapters) |
 | `agent/` | Off-chain reasoning engine, trigger handling, validation, proposal submission |
 | On-chain (external) | Treasury state, goals, proposal lifecycle, voting and execution |
 
@@ -204,7 +204,7 @@ Includes cycle context:
 - signed external trigger endpoint (`POST /propose`)
 - ENS optional metadata support (not access-gating)
 - dashboard + bot console + deterministic and fallback bot paths
-- mock external agents and cross-chain queue APIs
+- API adapters for external agents and cross-chain queue integrations
 
 ### 🚧 Planned / Next
 
@@ -253,9 +253,12 @@ GEMINI_API_KEY=
 # Optional Lit authorized addresses (comma-separated)
 LIT_AUTHORIZED_ADDRESSES=
 
-# Vault source
-VAULT_DATA_SOURCE=mock
-VAULT_STATUS_URL=
+# Vault source (production integration)
+VAULT_DATA_SOURCE=http
+VAULT_STATUS_URL=https://your-vault-api.example.com/status
+
+# Optional local fallback for development only
+ALLOW_LOCAL_FALLBACK=false
 ```
 
 ---
@@ -353,15 +356,11 @@ PORT=3001
 
 ---
 
-## Demo Notes
+## Integration Notes
 
-- Current stack runs in a practical demo mode with deterministic + mock modules for:
-  - external agent registry,
-  - cross-chain queue,
-  - ENS registration metadata,
-  - reasoning CID fallback.
-
-This keeps behavior testable while real chain integrations are progressively wired.
+- Frontend is configured to use live integrations by default (`VAULT_DATA_SOURCE=http`).
+- Local fallback data is disabled unless explicitly enabled with `ALLOW_LOCAL_FALLBACK=true`.
+- ENS resolution is on-chain; ENS registration remains implementation-specific and should be wired to registrar transactions for production writes.
 
 ---
 

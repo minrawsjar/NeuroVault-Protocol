@@ -3,7 +3,7 @@ import { encryptWithLit } from "@/lib/lit-protocol";
 import { getVaultSnapshot, type VaultSnapshot } from "@/lib/vault";
 import { getExternalAgentSummary } from "@/lib/agents";
 import { getCrossChainSummary } from "@/lib/crosschain";
-import { registerEnsName } from "@/lib/ens";
+import { registerEnsName, resolveEnsNameOnchain, type EnsChain } from "@/lib/ens";
 
 const GEMINI_API_KEY = (process.env.GEMINI_API_KEY || "").trim();
 const LIT_AUTHORIZED_ADDRESSES = (process.env.LIT_AUTHORIZED_ADDRESSES || "")
@@ -59,12 +59,18 @@ function fallbackReply(command: string, snapshot: VaultSnapshot) {
     return `ENS registration queued: ${ensMatch[1].toLowerCase()}`;
   }
 
+  const resolveMatch = command.trim().match(/^resolve\s+ens\s+([a-z0-9-]+\.eth)(?:\s+(mainnet|sepolia))?$/i);
+  if (resolveMatch) {
+    const chain = (resolveMatch[2] || "mainnet").toLowerCase();
+    return `Resolving ENS on-chain: ${resolveMatch[1].toLowerCase()} (${chain})`;
+  }
+
   if (lower.includes("treasury") && lower.includes("status")) {
     return `Treasury: $${snapshot.totalValueUsd.toLocaleString()} | DOT ${snapshot.dotAllocationPct}% | USDC ${snapshot.usdcAllocationPct}% | APY ${snapshot.apyPct}% | ${snapshot.stakers} stakers`;
   }
 
   if (lower.startsWith("stake ")) {
-    return `Queued simulated stake command: ${command.replace(/^stake\s+/i, "")}`;
+    return `Queued stake command: ${command.replace(/^stake\s+/i, "")}`;
   }
 
   if (lower.includes("governance") || lower.includes("queue")) {
@@ -88,7 +94,7 @@ function fallbackReply(command: string, snapshot: VaultSnapshot) {
     return "Rebalance suggestion: shift 5% from DOT to USDC over 2 tranches; reason: reduce volatility exposure while preserving yield target (confidence 72%).";
   }
 
-  return "Unknown command. Try: treasury status, stake <amount> <token>, governance queue, agent status, crosschain queue, register ens <name>.eth";
+  return "Unknown command. Try: treasury status, stake <amount> <token>, governance queue, agent status, crosschain queue, register ens <name>.eth, resolve ens <name>.eth [mainnet|sepolia]";
 }
 
 function isAdvisoryCommand(command: string): boolean {
@@ -133,7 +139,7 @@ function deterministicReply(command: string, snapshot: VaultSnapshot): string | 
   if (stakeMatch) {
     const amount = stakeMatch[1];
     const token = stakeMatch[2].toUpperCase();
-    return `Queued simulated stake command: ${amount} ${token}`;
+    return `Queued stake command: ${amount} ${token}`;
   }
 
   return null;
@@ -142,6 +148,7 @@ function deterministicReply(command: string, snapshot: VaultSnapshot): string | 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
+    const allowLocalFallback = (process.env.ALLOW_LOCAL_FALLBACK || "false").toLowerCase() === "true";
     const command = String(body?.command ?? "").trim();
     const requesterAddress = String(body?.requesterAddress ?? "").trim().toLowerCase();
     
@@ -165,6 +172,16 @@ export async function POST(req: NextRequest) {
 
     const ensMatch = command.match(/^register\s+ens\s+([a-z0-9-]+\.eth)$/i);
     if (ensMatch) {
+      if (!allowLocalFallback) {
+        return NextResponse.json(
+          {
+            error: "ENS registration endpoint is not wired for on-chain writes",
+            details: "Enable ALLOW_LOCAL_FALLBACK=true to use local registry or integrate registrar contract writes",
+          },
+          { status: 501 }
+        );
+      }
+
       const result = registerEnsName({
         name: ensMatch[1],
         owner: requesterAddress || "bot-console",
@@ -193,6 +210,35 @@ export async function POST(req: NextRequest) {
         provider: "deterministic",
         action: "ens_register",
         record: result.record,
+        lit,
+      });
+    }
+
+    const resolveMatch = command.match(/^resolve\s+ens\s+([a-z0-9-]+\.eth)(?:\s+(mainnet|sepolia))?$/i);
+    if (resolveMatch) {
+      const name = resolveMatch[1].toLowerCase();
+      const chain: EnsChain = resolveMatch[2]?.toLowerCase() === "sepolia" ? "sepolia" : "mainnet";
+
+      const resolution = await resolveEnsNameOnchain({ name, chain });
+      const reply = resolution.address
+        ? `ENS resolved: ${resolution.name} -> ${resolution.address} (${resolution.chain})`
+        : `ENS not found on-chain: ${resolution.name} (${resolution.chain})`;
+
+      let lit = null;
+      try {
+        lit = await encryptWithLit({
+          plaintext: reply,
+          authorizedAddresses: [...LIT_AUTHORIZED_ADDRESSES, requesterAddress],
+        });
+      } catch (err) {
+        console.warn("[BOT] Lit encryption failed, continuing without encryption:", err);
+      }
+
+      return NextResponse.json({
+        reply,
+        provider: "deterministic",
+        action: "ens_resolve",
+        resolution,
         lit,
       });
     }
@@ -236,7 +282,7 @@ export async function POST(req: NextRequest) {
 
     const prompt = advisory
       ? `You are NeuroVault treasury strategy bot. Use this snapshot:\n- Treasury Value: $${snapshot.totalValueUsd.toLocaleString()}\n- Allocation: DOT ${snapshot.dotAllocationPct}%, USDC ${snapshot.usdcAllocationPct}%\n- APY: ${snapshot.apyPct}%\n- Active Proposals: ${snapshot.activeProposals}\n- Stakers: ${snapshot.stakers}\n\nUser command: ${command}\n\nRespond in ONE short line only in this exact style:\nRebalance suggestion: <action>; reason: <why> (confidence <0-100>%).`
-      : `You are NeuroVault treasury bot. Respond in ONE short line only.\n\nUser command: ${command}\n\nSupported operations:\n- treasury status\n- stake <amount> <DOT|USDC>\n- governance queue\n- agent status\n- crosschain queue\n- register ens <name>.eth\n\nIf command is unsupported, reply with: Unknown command. Try: treasury status, stake <amount> <token>, governance queue, agent status, crosschain queue, register ens <name>.eth`;
+      : `You are NeuroVault treasury bot. Respond in ONE short line only.\n\nUser command: ${command}\n\nSupported operations:\n- treasury status\n- stake <amount> <DOT|USDC>\n- governance queue\n- agent status\n- crosschain queue\n- register ens <name>.eth\n- resolve ens <name>.eth [mainnet|sepolia]\n\nIf command is unsupported, reply with: Unknown command. Try: treasury status, stake <amount> <token>, governance queue, agent status, crosschain queue, register ens <name>.eth, resolve ens <name>.eth [mainnet|sepolia]`;
 
     console.log(`[BOT] Resolving Gemini model...`);
     const model = await resolveGeminiModel(GEMINI_API_KEY);

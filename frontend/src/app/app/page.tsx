@@ -15,16 +15,22 @@ import {
   Shield,
   Terminal,
   Wallet,
+  TrendingUp,
+  Vote,
+  DollarSign,
+  AlertCircle,
+  Loader2,
 } from "lucide-react";
 import ActivityFeed from "@/components/ActivityFeed";
 import GoalsPanel from "@/components/GoalsPanel";
 import { useWallet } from "@/components/SimpleWallet";
+import { useNeuroVaultContract, TreasuryState, Proposal, StakerInfo } from "@/hooks/useNeuroVault";
 
 const activities = [
   {
     id: "a1",
     type: "agent_cycle",
-    message: "Agent completed cycle #184 and rebalanced to 62% DOT / 38% USDC",
+    message: "Agent completed cycle #184 and rebalanced to 62% PAS / 38% USDC",
     timestamp: "2m ago",
     txHash: "0x81F...2cA",
   },
@@ -58,7 +64,24 @@ const activities = [
 ] as const;
 
 export default function AppPage() {
-  const { address } = useWallet();
+  const { address, isConnected } = useWallet();
+  const {
+    getTreasuryState,
+    getRecentProposals,
+    getStakerInfo,
+    getTokenBalances,
+    isLoading,
+    error,
+  } = useNeuroVaultContract();
+
+  // Contract data states
+  const [treasuryState, setTreasuryState] = useState<TreasuryState | null>(null);
+  const [proposals, setProposals] = useState<Proposal[]>([]);
+  const [stakerInfo, setStakerInfo] = useState<StakerInfo | null>(null);
+  const [tokenBalances, setTokenBalances] = useState<{ pas: string; usdc: string } | null>(null);
+  const [isDataLoading, setIsDataLoading] = useState(true);
+
+  // Fallback stats
   const [vaultStats, setVaultStats] = useState({
     totalValueUsd: 284700,
     dotAllocationPct: 62,
@@ -67,6 +90,7 @@ export default function AppPage() {
     stakers: 47,
     activeProposals: 3,
   });
+
   const [agentSummary, setAgentSummary] = useState({
     total: 0,
     active: 0,
@@ -77,6 +101,7 @@ export default function AppPage() {
     accessMode: "wallet+role",
     accessIndependentOfEns: true,
   });
+
   const [crosschainSummary, setCrosschainSummary] = useState({
     total: 0,
     queued: 0,
@@ -84,28 +109,73 @@ export default function AppPage() {
     settled: 0,
     bridge: "Hyperbridge",
   });
+
   const [command, setCommand] = useState("treasury status");
   const [isRunning, setIsRunning] = useState(false);
   const [consoleLines, setConsoleLines] = useState<string[]>([
     "> neurovault bot ready",
-    "> deterministic: treasury status | stake 250 DOT | governance queue | agent status | crosschain queue | register ens <name>.eth",
+    "> deterministic: treasury status | stake 250 PAS | governance queue | agent status | crosschain queue | register ens <name>.eth | resolve ens <name>.eth",
     "> gemini: suggest rebalance plan",
   ]);
 
+  // Load contract data
+  useEffect(() => {
+    const loadContractData = async () => {
+      if (!isConnected || !address) return;
+
+      setIsDataLoading(true);
+      try {
+        // Load treasury state
+        const treasury = await getTreasuryState();
+        if (treasury) {
+          setTreasuryState(treasury);
+          setVaultStats((prev) => ({
+            ...prev,
+            apyPct: treasury.apy,
+            activeProposals: treasury.activeProposals,
+          }));
+        }
+
+        // Load proposals
+        const recentProposals = await getRecentProposals(5);
+        if (recentProposals.length > 0) {
+          setProposals(recentProposals);
+        }
+
+        // Load staker info
+        const staker = await getStakerInfo(address);
+        if (staker) {
+          setStakerInfo(staker);
+        }
+
+        // Load token balances
+        const balances = await getTokenBalances(address);
+        if (balances) {
+          setTokenBalances(balances);
+        }
+      } catch (err) {
+        console.error("Error loading contract data:", err);
+      } finally {
+        setIsDataLoading(false);
+      }
+    };
+
+    loadContractData();
+  }, [isConnected, address, getTreasuryState, getRecentProposals, getStakerInfo, getTokenBalances]);
+
+  // Load other data
   useEffect(() => {
     const loadVault = async () => {
       try {
         const res = await fetch("/api/vault/status");
         if (!res.ok) return;
         const data = await res.json();
-        setVaultStats({
+        setVaultStats((prev) => ({
+          ...prev,
           totalValueUsd: Number(data?.totalValueUsd ?? 284700),
           dotAllocationPct: Number(data?.dotAllocationPct ?? 62),
           usdcAllocationPct: Number(data?.usdcAllocationPct ?? 38),
-          apyPct: Number(data?.apyPct ?? 12.4),
-          stakers: Number(data?.stakers ?? 47),
-          activeProposals: Number(data?.activeProposals ?? 3),
-        });
+        }));
       } catch {
         // keep fallback UI values
       }
@@ -214,8 +284,59 @@ export default function AppPage() {
     }
   };
 
+  // Render loading state
+  if (isDataLoading && isConnected) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-20 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 text-blue-500 animate-spin mx-auto mb-4" />
+          <p className="text-zinc-400">Loading contract data...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6 text-zinc-300">
+      {/* Wallet Status Banner */}
+      {isConnected && stakerInfo && (
+        <div className="rounded-xl border border-blue-500/30 bg-blue-500/10 p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Wallet className="w-5 h-5 text-blue-400" />
+              <div>
+                <p className="text-sm text-blue-400 font-medium">Your Position</p>
+                <p className="text-xs text-zinc-400">
+                  Staked: {stakerInfo.staked} PAS • Voting Power: {stakerInfo.votingPower.toFixed(2)}%
+                </p>
+              </div>
+            </div>
+            {tokenBalances && (
+              <div className="text-right">
+                <p className="text-xs text-zinc-500">Balances</p>
+                <p className="text-sm text-white">{tokenBalances.pas} PAS • {tokenBalances.usdc} USDC</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Error Banner */}
+      {error && (
+        <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 flex items-center gap-3">
+          <AlertCircle className="w-5 h-5 text-red-400" />
+          <p className="text-sm text-red-400">{error}</p>
+        </div>
+      )}
+
+      {/* Loading Indicator */}
+      {isLoading && (
+        <div className="flex items-center justify-center py-2">
+          <Loader2 className="w-5 h-5 text-blue-500 animate-spin mr-2" />
+          <span className="text-sm text-zinc-500">Transaction in progress...</span>
+        </div>
+      )}
+
       <section className="rounded-2xl border border-zinc-800 bg-zinc-900 p-6 md:p-8">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
           <div>
@@ -223,9 +344,14 @@ export default function AppPage() {
               <Wallet size={14} className="mr-2" /> Total Value Locked
             </h2>
             <span className="text-4xl md:text-6xl font-bold text-white tracking-tight">
-              ${vaultStats.totalValueUsd.toLocaleString()}
+              ${treasuryState 
+                ? Number(treasuryState.totalValue).toLocaleString() 
+                : vaultStats.totalValueUsd.toLocaleString()
+              }
             </span>
-            <p className="text-sm text-zinc-400 mt-2">{vaultStats.stakers} stakers • Live network data</p>
+            <p className="text-sm text-zinc-400 mt-2">
+              {treasuryState ? vaultStats.stakers : "--"} stakers • On-chain verified
+            </p>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -233,7 +359,9 @@ export default function AppPage() {
               <p className="text-xs text-zinc-500 mb-1 flex items-center">
                 <Activity size={12} className="mr-1" /> APY
               </p>
-              <p className="text-2xl font-semibold text-white">{vaultStats.apyPct}%</p>
+              <p className="text-2xl font-semibold text-white">
+                {treasuryState ? treasuryState.apy.toFixed(2) : vaultStats.apyPct}%
+              </p>
             </div>
             <div className="bg-zinc-950 rounded-xl p-4 border border-zinc-800 min-w-[120px]">
               <p className="text-xs text-zinc-500 mb-1 flex items-center">
@@ -243,13 +371,48 @@ export default function AppPage() {
             </div>
           </div>
         </div>
+
+        {/* Treasury Breakdown */}
+        {treasuryState && (
+          <div className="mt-6 pt-6 border-t border-zinc-800">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center">
+                  <TrendingUp className="w-5 h-5 text-blue-400" />
+                </div>
+                <div>
+                  <p className="text-xs text-zinc-500">PAS Balance</p>
+                  <p className="text-lg font-medium text-white">{Number(treasuryState.dotBalance).toLocaleString()} PAS</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-indigo-500/20 flex items-center justify-center">
+                  <DollarSign className="w-5 h-5 text-indigo-400" />
+                </div>
+                <div>
+                  <p className="text-xs text-zinc-500">USDC Balance</p>
+                  <p className="text-lg font-medium text-white">{Number(treasuryState.usdcBalance).toLocaleString()} USDC</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                  <Vote className="w-5 h-5 text-emerald-400" />
+                </div>
+                <div>
+                  <p className="text-xs text-zinc-500">Active Proposals</p>
+                  <p className="text-lg font-medium text-white">{treasuryState.activeProposals}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </section>
 
       <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Link href="/app/stake" className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5 hover:border-zinc-600 transition-colors">
           <p className="text-xs uppercase tracking-widest text-zinc-500 mb-2">Stake</p>
           <p className="text-xl font-bold text-white">Deposit & Withdraw</p>
-          <p className="text-sm text-zinc-400 mt-1">Manage DOT and USDC positions</p>
+          <p className="text-sm text-zinc-400 mt-1">Manage PAS and USDC positions</p>
         </Link>
         <Link href="/app/treasury" className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5 hover:border-zinc-600 transition-colors">
           <p className="text-xs uppercase tracking-widest text-zinc-500 mb-2">Treasury</p>
@@ -259,9 +422,41 @@ export default function AppPage() {
         <Link href="/app/vote" className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5 hover:border-zinc-600 transition-colors">
           <p className="text-xs uppercase tracking-widest text-zinc-500 mb-2">Governance</p>
           <p className="text-xl font-bold text-white">Proposal Status</p>
-          <p className="text-sm text-zinc-400 mt-1">Active votes and participation metrics</p>
+          <p className="text-sm text-zinc-400 mt-1">
+            {proposals.length > 0 ? `${proposals.filter(p => p.status === 0).length} active proposals` : "Active votes and participation metrics"}
+          </p>
         </Link>
       </section>
+
+      {/* Active Proposals Preview */}
+      {proposals.length > 0 && (
+        <section className="rounded-2xl border border-zinc-800 bg-zinc-900 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-semibold text-zinc-400 uppercase tracking-widest flex items-center">
+              <Vote size={16} className="mr-2" /> Recent Proposals
+            </h3>
+            <Link href="/app/vote" className="text-xs text-blue-400 hover:text-blue-300">
+              View all →
+            </Link>
+          </div>
+          <div className="space-y-3">
+            {proposals.slice(0, 3).map((proposal) => (
+              <div key={proposal.id} className="flex items-center justify-between py-3 border-b border-zinc-800 last:border-0">
+                <div>
+                  <p className="text-sm text-white font-medium">{proposal.description}</p>
+                  <p className="text-xs text-zinc-500">
+                    #{proposal.id} • {["Pending", "Approved", "Rejected", "Executed", "Expired"][proposal.status]}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm text-zinc-400">{proposal.votesFor} for</p>
+                  <p className="text-xs text-zinc-500">{proposal.votesAgainst} against</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section className="grid grid-cols-1 xl:grid-cols-3 gap-6" id="bot-console">
         <div className="xl:col-span-2 rounded-2xl border border-zinc-800 bg-zinc-900 p-6 space-y-4">
@@ -273,11 +468,12 @@ export default function AppPage() {
           <div className="flex flex-wrap gap-2">
             {[
               "treasury status",
-              "stake 250 DOT",
+              "stake 250 PAS",
               "governance queue",
               "agent status",
               "crosschain queue",
               "register ens neurovault-ops.eth",
+              "resolve ens neurovault.eth",
               "suggest rebalance plan",
             ].map((preset) => (
               <button
@@ -326,7 +522,7 @@ export default function AppPage() {
             <div className="space-y-4">
               <div>
                 <div className="flex justify-between text-sm mb-1">
-                  <span className="text-white">DOT</span>
+                  <span className="text-white">PAS</span>
                   <span className="text-blue-400">{vaultStats.dotAllocationPct}%</span>
                 </div>
                 <div className="h-2 rounded-full bg-zinc-950 border border-zinc-800 overflow-hidden">

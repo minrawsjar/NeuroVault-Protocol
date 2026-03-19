@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Landmark,
   ArrowDownToLine,
@@ -16,8 +16,11 @@ import {
   Clock,
   Info,
   Check,
+  Loader2,
+  AlertCircle,
 } from "lucide-react";
-import { useAccount } from "wagmi";
+import { useWallet } from "@/components/SimpleWallet";
+import { useNeuroVaultContract, TreasuryState, StakerInfo } from "@/hooks/useNeuroVault";
 
 type Tab = "deposit" | "withdraw" | "goals";
 
@@ -35,7 +38,7 @@ interface Goal {
 const mockGoals: Goal[] = [
   {
     id: 8,
-    text: "Increase DOT allocation to 70% during Q2 bull cycle",
+    text: "Increase PAS allocation to 70% during Q2 bull cycle",
     proposer: "0xA3f...8B2",
     status: "voting",
     votesFor: 18,
@@ -75,7 +78,7 @@ const mockGoals: Goal[] = [
   },
   {
     id: 4,
-    text: "Accumulate DOT below $8 average entry",
+    text: "Accumulate PAS below $8 average entry",
     proposer: "0xA3f...8B2",
     status: "completed",
     votesFor: 29,
@@ -95,23 +98,128 @@ export default function StakePage() {
   const [activeTab, setActiveTab] = useState<Tab>("deposit");
   const [depositAmount, setDepositAmount] = useState("");
   const [withdrawAmount, setWithdrawAmount] = useState("");
-  const [depositToken, setDepositToken] = useState<"DOT" | "USDC">("DOT");
-  const [withdrawToken, setWithdrawToken] = useState<"DOT" | "USDC">("DOT");
+  const [depositToken, setDepositToken] = useState<"PAS" | "USDC">("PAS");
+  const [withdrawToken, setWithdrawToken] = useState<"PAS" | "USDC">("PAS");
   const [showNewGoal, setShowNewGoal] = useState(false);
   const [newGoalText, setNewGoalText] = useState("");
   const [goalList, setGoalList] = useState<Goal[]>(mockGoals);
   const [goalVotes, setGoalVotes] = useState<Record<number, "for" | "against" | null>>({});
   const [votingGoal, setVotingGoal] = useState<number | null>(null);
-  const { isConnected } = useAccount();
+  const [mounted, setMounted] = useState(false);
+  
+  // Contract integration
+  const { address, isConnected } = useWallet();
+  
+  // Prevent hydration mismatch
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+  const { 
+    getTreasuryState, 
+    getStakerInfo, 
+    getTokenBalances,
+    stake, 
+    unstake,
+    isLoading,
+    error,
+    networkError,
+    switchNetwork,
+  } = useNeuroVaultContract();
+  
+  // Real contract data
+  const [treasuryState, setTreasuryState] = useState<TreasuryState | null>(null);
+  const [stakerInfo, setStakerInfo] = useState<StakerInfo | null>(null);
+  const [tokenBalances, setTokenBalances] = useState<{ pas: string; usdc: string } | null>(null);
+  const [isDataLoading, setIsDataLoading] = useState(true);
+  const [stakeSuccess, setStakeSuccess] = useState<string | null>(null);
+  const [unstakeSuccess, setUnstakeSuccess] = useState<string | null>(null);
 
-  const mockUserStake = {
-    totalStaked: "2,450.00",
-    dotStaked: "1,800.00",
-    usdcStaked: "650.00",
-    votingPower: "5.2%",
+  // Load contract data
+  useEffect(() => {
+    const loadContractData = async () => {
+      console.log("loadContractData - isConnected:", isConnected, "address:", address);
+      
+      if (!isConnected || !address) {
+        console.log("Skipping data load - not connected or no address");
+        setIsDataLoading(false);
+        return;
+      }
+
+      setIsDataLoading(true);
+      try {
+        console.log("Loading contract data for address:", address);
+        const [treasury, staker, balances] = await Promise.all([
+          getTreasuryState(),
+          getStakerInfo(address),
+          getTokenBalances(address),
+        ]);
+
+        console.log("Loaded data:", { treasury, staker, balances });
+        
+        if (treasury) setTreasuryState(treasury);
+        if (staker) setStakerInfo(staker);
+        if (balances) setTokenBalances(balances);
+      } catch (err) {
+        console.error("Error loading contract data:", err);
+      } finally {
+        setIsDataLoading(false);
+      }
+    };
+
+    loadContractData();
+  }, [isConnected, address, getTreasuryState, getStakerInfo, getTokenBalances]);
+
+  // Handle stake
+  const handleStake = async () => {
+    if (!depositAmount || !isConnected) return;
+    
+    const success = await stake(depositAmount);
+    if (success) {
+      setStakeSuccess(`Successfully staked ${depositAmount} PAS`);
+      setDepositAmount("");
+      // Refresh data
+      const staker = await getStakerInfo(address!);
+      const balances = await getTokenBalances(address!);
+      if (staker) setStakerInfo(staker);
+      if (balances) setTokenBalances(balances);
+      setTimeout(() => setStakeSuccess(null), 5000);
+    }
+  };
+
+  // Handle unstake
+  const handleUnstake = async () => {
+    if (!withdrawAmount || !isConnected) return;
+    
+    const success = await unstake(withdrawAmount);
+    if (success) {
+      setUnstakeSuccess(`Successfully unstaked ${withdrawAmount} PAS`);
+      setWithdrawAmount("");
+      // Refresh data
+      const staker = await getStakerInfo(address!);
+      const balances = await getTokenBalances(address!);
+      if (staker) setStakerInfo(staker);
+      if (balances) setTokenBalances(balances);
+      setTimeout(() => setUnstakeSuccess(null), 5000);
+    }
+  };
+
+  // Use real data or fallback
+  const userStake = stakerInfo ? {
+    totalStaked: stakerInfo.staked,
+    pasStaked: stakerInfo.staked,
+    usdcStaked: "0",
+    votingPower: `${stakerInfo.votingPower.toFixed(1)}%`,
     proposalsVoted: 18,
     rewards: "32.50",
     stakingSince: "45 days",
+  } : {
+    totalStaked: "0",
+    pasStaked: "0",
+    usdcStaked: "0",
+    votingPower: "0%",
+    proposalsVoted: 0,
+    rewards: "0",
+    stakingSince: "--",
   };
 
   const handleGoalVote = async (goalId: number, voteType: "for" | "against") => {
@@ -193,11 +301,11 @@ export default function StakePage() {
     }
   };
 
-  const dotStakedNum = Number(mockUserStake.dotStaked.replace(/,/g, ""));
-  const usdcStakedNum = Number(mockUserStake.usdcStaked.replace(/,/g, ""));
-  const totalStakeNum = dotStakedNum + usdcStakedNum;
-  const dotPct = totalStakeNum > 0 ? Math.round((dotStakedNum / totalStakeNum) * 100) : 0;
-  const usdcPct = 100 - dotPct;
+  const pasStakedNum = Number(userStake.pasStaked.replace(/,/g, ""));
+  const usdcStakedNum = Number(userStake.usdcStaked.replace(/,/g, ""));
+  const totalStakeNum = pasStakedNum + usdcStakedNum;
+  const pasPct = totalStakeNum > 0 ? Math.round((pasStakedNum / totalStakeNum) * 100) : 0;
+  const usdcPct = 100 - pasPct;
 
   const tabs: { key: Tab; label: string; icon: typeof Landmark }[] = [
     { key: "deposit", label: "Deposit", icon: ArrowDownToLine },
@@ -207,6 +315,65 @@ export default function StakePage() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+      {/* Loading Overlay */}
+      {isDataLoading && (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-8 h-8 text-blue-500 animate-spin mr-3" />
+          <span className="text-zinc-400">Loading contract data...</span>
+        </div>
+      )}
+
+      {/* Network Error Banner */}
+      {(networkError || (error && error.includes('network'))) && (
+        <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-3">
+              <AlertCircle className="w-5 h-5 text-red-400" />
+              <p className="text-sm font-semibold text-red-400">Wrong Network</p>
+            </div>
+            <button
+              onClick={switchNetwork}
+              className="rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold px-4 py-2 transition-colors"
+            >
+              Switch to Polkadot Hub TestNet
+            </button>
+          </div>
+          <p className="text-sm text-red-300">
+            Please switch to Polkadot Hub TestNet (Chain ID: 420420417) to use NeuroVault.
+          </p>
+        </div>
+      )}
+      
+      {/* Other Error Banner */}
+      {error && !error.includes('network') && !networkError && (
+        <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 flex items-center gap-3">
+          <AlertCircle className="w-5 h-5 text-red-400" />
+          <p className="text-sm text-red-400">{error}</p>
+        </div>
+      )}
+
+      {/* Success Banners */}
+      {stakeSuccess && (
+        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 flex items-center gap-3">
+          <Check className="w-5 h-5 text-emerald-400" />
+          <p className="text-sm text-emerald-400">{stakeSuccess}</p>
+        </div>
+      )}
+      {unstakeSuccess && (
+        <div className="rounded-xl border border-orange-500/30 bg-orange-500/10 p-4 flex items-center gap-3">
+          <Check className="w-5 h-5 text-orange-400" />
+          <p className="text-sm text-orange-400">{unstakeSuccess}</p>
+        </div>
+      )}
+
+      {/* Transaction Loading */}
+      {isLoading && (
+        <div className="flex items-center justify-center py-2">
+          <Loader2 className="w-5 h-5 text-blue-500 animate-spin mr-2" />
+          <span className="text-sm text-zinc-500">Transaction in progress...</span>
+        </div>
+      )}
+
       {/* Hero Header */}
       <div className="rounded-2xl border border-zinc-800 bg-gradient-to-br from-blue-900/20 via-zinc-900 to-zinc-900 p-6 md:p-8">
         <div className="flex items-start gap-4 mb-4">
@@ -227,13 +394,13 @@ export default function StakePage() {
         </h3>
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
           {[
-            { label: "Total Staked", value: `$${mockUserStake.totalStaked}`, icon: Coins, color: "bg-blue-500/10" },
-            { label: "DOT Staked", value: `${mockUserStake.dotStaked} DOT`, icon: TrendingUp, color: "bg-indigo-500/10" },
-            { label: "USDC Staked", value: `$${mockUserStake.usdcStaked}`, icon: Coins, color: "bg-cyan-500/10" },
-            { label: "Voting Power", value: mockUserStake.votingPower, icon: Users, color: "bg-emerald-500/10" },
-            { label: "Votes Cast", value: String(mockUserStake.proposalsVoted), icon: ThumbsUp, color: "bg-purple-500/10" },
-            { label: "Rewards", value: `$${mockUserStake.rewards}`, icon: TrendingUp, color: "bg-orange-500/10" },
-            { label: "Staking Since", value: mockUserStake.stakingSince, icon: Clock, color: "bg-pink-500/10" },
+            { label: "Total Staked", value: `$${userStake.totalStaked}`, icon: Coins, color: "bg-blue-500/10" },
+            { label: "PAS Staked", value: `${userStake.pasStaked} PAS`, icon: TrendingUp, color: "bg-indigo-500/10" },
+            { label: "USDC Staked", value: `$${userStake.usdcStaked}`, icon: Coins, color: "bg-cyan-500/10" },
+            { label: "Voting Power", value: userStake.votingPower, icon: Users, color: "bg-emerald-500/10" },
+            { label: "Votes Cast", value: String(userStake.proposalsVoted), icon: ThumbsUp, color: "bg-purple-500/10" },
+            { label: "Rewards", value: `$${userStake.rewards}`, icon: TrendingUp, color: "bg-orange-500/10" },
+            { label: "Staking Since", value: userStake.stakingSince, icon: Clock, color: "bg-pink-500/10" },
           ].map((stat) => (
             <div key={stat.label} className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-4 hover:border-zinc-700 transition-colors">
               <div className={`w-8 h-8 rounded-lg ${stat.color} border border-zinc-700/50 flex items-center justify-center mb-2`}>
@@ -248,20 +415,20 @@ export default function StakePage() {
         <div className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-6 mt-4">
           <div className="flex items-center justify-between mb-4">
             <p className="text-sm font-semibold text-zinc-300">Stake Split</p>
-            <p className="text-xs text-zinc-500">DOT {dotPct}% · USDC {usdcPct}%</p>
+            <p className="text-xs text-zinc-500">PAS {pasPct}% · USDC {usdcPct}%</p>
           </div>
           <div className="relative h-3 rounded-full bg-zinc-800 overflow-hidden mb-4">
-            <div className="absolute left-0 top-0 h-full bg-blue-500" style={{ width: `${dotPct}%` }} />
+            <div className="absolute left-0 top-0 h-full bg-blue-500" style={{ width: `${pasPct}%` }} />
             <div className="absolute right-0 top-0 h-full bg-indigo-500" style={{ width: `${usdcPct}%` }} />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="rounded-lg border border-blue-500/30 bg-blue-500/10 p-3">
-              <p className="text-xs font-medium text-zinc-400 uppercase tracking-wide mb-1">DOT Staked</p>
-              <p className="text-base font-semibold text-white">{mockUserStake.dotStaked} DOT</p>
+              <p className="text-xs font-medium text-zinc-400 uppercase tracking-wide mb-1">PAS Staked</p>
+              <p className="text-base font-semibold text-white">{userStake.pasStaked} PAS</p>
             </div>
             <div className="rounded-lg border border-indigo-500/30 bg-indigo-500/10 p-3">
               <p className="text-xs font-medium text-zinc-400 uppercase tracking-wide mb-1">USDC Staked</p>
-              <p className="text-base font-semibold text-white">${mockUserStake.usdcStaked}</p>
+              <p className="text-base font-semibold text-white">${userStake.usdcStaked}</p>
             </div>
           </div>
         </div>
@@ -306,15 +473,27 @@ export default function StakePage() {
                   <label className="text-xs font-medium text-zinc-400 uppercase tracking-wide block mb-3">Select Token</label>
                   <div className="grid grid-cols-2 gap-3">
                     <button
-                      onClick={() => setDepositToken("DOT")}
+                      onClick={() => setDepositToken("PAS")}
                       className={`rounded-lg border transition-all p-4 text-left ${
-                        depositToken === "DOT"
+                        depositToken === "PAS"
                           ? "border-blue-500/50 bg-blue-500/20"
                           : "border-zinc-700 bg-zinc-900/50 hover:border-zinc-600"
                       }`}
                     >
-                      <p className="text-xs font-medium text-zinc-400 uppercase tracking-wide mb-1">DOT</p>
-                      <p className="text-base font-semibold text-white">{mockUserStake.dotStaked} available</p>
+                      <p className="text-xs font-medium text-zinc-400 uppercase tracking-wide mb-1">PAS</p>
+                      <p className="text-base font-semibold text-white">
+                        {!mounted 
+                          ? '...' 
+                          : !address 
+                          ? 'Connect wallet' 
+                          : isDataLoading 
+                          ? 'Loading...' 
+                          : tokenBalances 
+                          ? `${Number(tokenBalances.pas).toFixed(2)} available` 
+                          : error 
+                          ? 'Network error' 
+                          : '0.00 available'}
+                      </p>
                     </button>
                     <button
                       onClick={() => setDepositToken("USDC")}
@@ -325,7 +504,19 @@ export default function StakePage() {
                       }`}
                     >
                       <p className="text-xs font-medium text-zinc-400 uppercase tracking-wide mb-1">USDC</p>
-                      <p className="text-base font-semibold text-white">${mockUserStake.usdcStaked} available</p>
+                      <p className="text-base font-semibold text-white">
+                        {!mounted 
+                          ? '...' 
+                          : !address 
+                          ? 'Connect wallet' 
+                          : isDataLoading 
+                          ? 'Loading...' 
+                          : tokenBalances 
+                          ? `${Number(tokenBalances.usdc).toFixed(2)} available` 
+                          : error 
+                          ? 'Network error' 
+                          : '0.00 available'}
+                      </p>
                     </button>
                   </div>
                 </div>
@@ -374,11 +565,14 @@ export default function StakePage() {
 
                 {/* Submit */}
                 <button
-                  disabled={!isConnected || !depositAmount}
+                  onClick={handleStake}
+                  disabled={!isConnected || !depositAmount || isLoading}
                   className="w-full rounded-lg bg-blue-600 hover:bg-blue-500 disabled:bg-zinc-800 disabled:text-zinc-600 text-white font-semibold py-3 transition-colors"
                 >
                   {!isConnected
                     ? "Connect Wallet First"
+                    : isLoading
+                    ? "Processing..."
                     : !depositAmount
                     ? "Enter Amount"
                     : `Deposit ${depositAmount} ${depositToken}`}
@@ -400,15 +594,15 @@ export default function StakePage() {
                   <label className="text-xs font-medium text-zinc-400 uppercase tracking-wide block mb-3">Select Token</label>
                   <div className="grid grid-cols-2 gap-3">
                     <button
-                      onClick={() => setWithdrawToken("DOT")}
+                      onClick={() => setWithdrawToken("PAS")}
                       className={`rounded-lg border transition-all p-4 text-left ${
-                        withdrawToken === "DOT"
+                        withdrawToken === "PAS"
                           ? "border-blue-500/50 bg-blue-500/20"
                           : "border-zinc-700 bg-zinc-900/50 hover:border-zinc-600"
                       }`}
                     >
-                      <p className="text-xs font-medium text-zinc-400 uppercase tracking-wide mb-1">DOT</p>
-                      <p className="text-base font-semibold text-white">{mockUserStake.dotStaked} staked</p>
+                      <p className="text-xs font-medium text-zinc-400 uppercase tracking-wide mb-1">PAS</p>
+                      <p className="text-base font-semibold text-white">{userStake.pasStaked} staked</p>
                     </button>
                     <button
                       onClick={() => setWithdrawToken("USDC")}
@@ -419,7 +613,7 @@ export default function StakePage() {
                       }`}
                     >
                       <p className="text-xs font-medium text-zinc-400 uppercase tracking-wide mb-1">USDC</p>
-                      <p className="text-base font-semibold text-white">${mockUserStake.usdcStaked} staked</p>
+                      <p className="text-base font-semibold text-white">${userStake.usdcStaked} staked</p>
                     </button>
                   </div>
                 </div>
@@ -436,7 +630,7 @@ export default function StakePage() {
                       className="flex-1 rounded-lg border border-zinc-700 bg-zinc-900 text-white px-4 py-2 text-sm focus:outline-none focus:border-orange-500"
                     />
                     <button
-                      onClick={() => setWithdrawAmount(withdrawToken === "DOT" ? "1800" : "650")}
+                      onClick={() => setWithdrawAmount(withdrawToken === "PAS" ? userStake.pasStaked : "0")}
                       className="rounded-lg border border-zinc-700 bg-zinc-900 text-zinc-300 hover:text-white px-4 py-2 text-xs font-medium transition-colors"
                     >
                       Max
@@ -454,11 +648,14 @@ export default function StakePage() {
 
                 {/* Submit */}
                 <button
-                  disabled={!isConnected || !withdrawAmount}
+                  onClick={handleUnstake}
+                  disabled={!isConnected || !withdrawAmount || isLoading}
                   className="w-full rounded-lg bg-orange-600 hover:bg-orange-500 disabled:bg-zinc-800 disabled:text-zinc-600 text-white font-semibold py-3 transition-colors"
                 >
                   {!isConnected
                     ? "Connect Wallet First"
+                    : isLoading
+                    ? "Processing..."
                     : !withdrawAmount
                     ? "Enter Amount"
                     : `Withdraw ${withdrawAmount} ${withdrawToken}`}
@@ -621,7 +818,7 @@ export default function StakePage() {
             </h3>
             <div className="space-y-3">
               {[
-                { num: 1, title: "Deposit", desc: "DOT or USDC into the vault" },
+                { num: 1, title: "Deposit", desc: "PAS or USDC into the vault" },
                 { num: 2, title: "Vote", desc: "on AI proposals weighted by stake" },
                 { num: 3, title: "Govern", desc: "by proposing goals for the AI agent" },
                 { num: 4, title: "Earn", desc: "yield from approved strategies" },

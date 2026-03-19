@@ -49,7 +49,7 @@ async function main() {
   if (fs.existsSync(deploymentPath)) {
     const deployment = JSON.parse(fs.readFileSync(deploymentPath, "utf-8"));
     vaultAddress = deployment.contracts.NeuroVault;
-    dotAddress = deployment.tokens.DOT;
+    dotAddress = deployment.tokens.PAS || deployment.tokens.DOT;
     usdcAddress = deployment.tokens.USDC;
   } else {
     // Fallback to env

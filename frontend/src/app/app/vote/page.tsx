@@ -8,187 +8,171 @@ import {
   ThumbsDown,
   ThumbsUp,
   Vote,
+  Loader2,
+  AlertCircle,
 } from "lucide-react";
-import { VaultSnapshot } from "@/lib/vault";
+import { useWallet } from "@/components/SimpleWallet";
+import { useNeuroVaultContract, Proposal, StakerInfo } from "@/hooks/useNeuroVault";
 
-type Proposal = {
-  tag: string;
-  status: "Active" | "Pending";
-  title: string;
-  desc: string;
-  forVotes: number;
-  againstVotes: number;
-  deadline: string;
-};
-
-const proposals: Proposal[] = [
-  {
-    tag: "Economics",
-    status: "Active",
-    title: "Increase APY to 14% for Q2 2026",
-    desc: "Proposal to increase staking APY from 12.4% to 14% starting Q2 based on improved yield strategies.",
-    forVotes: 38,
-    againstVotes: 9,
-    deadline: "2026-03-25",
-  },
-  {
-    tag: "Strategy",
-    status: "Active",
-    title: "Deploy Treasury to Aave v4 Lending",
-    desc: "Move 20% of idle USDC reserves to Aave v4 for additional yield generation utilizing custom hooks.",
-    forVotes: 32,
-    againstVotes: 15,
-    deadline: "2026-03-28",
-  },
-  {
-    tag: "Technical",
-    status: "Active",
-    title: "Protocol Version 2.1 Update",
-    desc: "Security patches, performance optimizations for the ZK-Rollup, and new delegated governance features.",
-    forVotes: 44,
-    againstVotes: 3,
-    deadline: "2026-03-30",
-  },
-  {
-    tag: "Expansion",
-    status: "Pending",
-    title: "Multi-Chain Expansion Phase 1",
-    desc: "Initiate deployment plan for Avalanche and Polygon networks. Waiting on security audit completion.",
-    forVotes: 0,
-    againstVotes: 0,
-    deadline: "TBD",
-  },
-];
+// Status mapping from contract (0=Pending, 1=Approved, 2=Rejected, 3=Executed, 4=Expired)
+const STATUS_MAP = ["Pending", "Approved", "Rejected", "Executed", "Expired"];
 
 export default function AppVotePage() {
-  const [vault, setVault] = useState<VaultSnapshot | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [proposalList, setProposalList] = useState<Proposal[]>(proposals);
-  const [votes, setVotes] = useState<Record<string, "for" | "against" | null>>({});
-  const [votingInProgress, setVotingInProgress] = useState<string | null>(null);
+  const { address, isConnected } = useWallet();
+  const {
+    getRecentProposals,
+    getTreasuryState,
+    getStakerInfo,
+    vote,
+    finalizeProposal,
+    isLoading,
+    error,
+  } = useNeuroVaultContract();
 
+  // Contract data states
+  const [proposals, setProposals] = useState<Proposal[]>([]);
+  const [treasuryState, setTreasuryState] = useState<{ activeProposals: number; apy: number } | null>(null);
+  const [stakerInfo, setStakerInfo] = useState<StakerInfo | null>(null);
+  const [isDataLoading, setIsDataLoading] = useState(true);
+  const [voteSuccess, setVoteSuccess] = useState<string | null>(null);
+  const [votes, setVotes] = useState<Record<number, "for" | "against" | null>>({});
+  const [votingInProgress, setVotingInProgress] = useState<number | null>(null);
+
+  // Load contract data
   useEffect(() => {
-    async function fetchVault() {
+    const loadContractData = async () => {
+      if (!isConnected) {
+        setIsDataLoading(false);
+        return;
+      }
+
+      setIsDataLoading(true);
       try {
-        const res = await fetch("/api/vault/status");
-        if (res.ok) {
-          const data = await res.json();
-          setVault(data);
+        const [recentProposals, treasury, staker] = await Promise.all([
+          getRecentProposals(10),
+          getTreasuryState(),
+          address ? getStakerInfo(address) : null,
+        ]);
+
+        if (recentProposals.length > 0) {
+          setProposals(recentProposals);
+        }
+        if (treasury) {
+          setTreasuryState(treasury);
+        }
+        if (staker) {
+          setStakerInfo(staker);
         }
       } catch (err) {
-        console.error("Error fetching vault:", err);
+        console.error("Error loading contract data:", err);
       } finally {
-        setLoading(false);
+        setIsDataLoading(false);
       }
-    }
-    fetchVault();
-  }, []);
+    };
 
-  const handleVote = async (proposalTitle: string, voteType: "for" | "against") => {
-    setVotingInProgress(proposalTitle);
+    loadContractData();
+  }, [isConnected, address, getRecentProposals, getTreasuryState, getStakerInfo]);
+
+  // Handle voting
+  const handleVote = async (proposalId: number, voteType: "for" | "against") => {
+    if (!isConnected) return;
+
+    setVotingInProgress(proposalId);
     try {
-      // Simulate voting action
-      await new Promise((resolve) => setTimeout(resolve, 800));
+      const success = await vote(proposalId, voteType === "for");
+      if (success) {
+        setVotes((prev) => ({ ...prev, [proposalId]: voteType }));
+        setVoteSuccess(`Successfully voted ${voteType} on proposal #${proposalId}`);
+        
+        // Refresh proposals
+        const updatedProposals = await getRecentProposals(10);
+        if (updatedProposals.length > 0) {
+          setProposals(updatedProposals);
+        }
+        
+        setTimeout(() => setVoteSuccess(null), 5000);
+      }
+    } finally {
+      setVotingInProgress(null);
+    }
+  };
+
+  // Handle finalize proposal
+  const handleFinalize = async (proposalId: number) => {
+    const success = await finalizeProposal(proposalId);
+    if (success) {
+      setVoteSuccess(`Proposal #${proposalId} finalized successfully`);
       
-      // Update the proposal vote counts
-      setProposalList((prev) =>
-        prev.map((p) => {
-          if (p.title === proposalTitle) {
-            const oldVote = votes[proposalTitle];
-            let newForVotes = p.forVotes;
-            let newAgainstVotes = p.againstVotes;
-
-            // Remove old vote if it exists
-            if (oldVote === "for") {
-              newForVotes -= 1;
-            } else if (oldVote === "against") {
-              newAgainstVotes -= 1;
-            }
-
-            // Add new vote
-            if (voteType === "for") {
-              newForVotes += 1;
-            } else {
-              newAgainstVotes += 1;
-            }
-
-            return { ...p, forVotes: newForVotes, againstVotes: newAgainstVotes };
-          }
-          return p;
-        })
-      );
-
-      setVotes((prev) => ({
-        ...prev,
-        [proposalTitle]: voteType,
-      }));
-    } catch (err) {
-      console.error("Voting error:", err);
-    } finally {
-      setVotingInProgress(null);
+      // Refresh proposals
+      const updatedProposals = await getRecentProposals(10);
+      if (updatedProposals.length > 0) {
+        setProposals(updatedProposals);
+      }
+      
+      setTimeout(() => setVoteSuccess(null), 5000);
     }
   };
 
-  const handleRemoveVote = async (proposalTitle: string) => {
-    setVotingInProgress(proposalTitle);
-    try {
-      // Simulate vote removal
-      await new Promise((resolve) => setTimeout(resolve, 600));
+  const activeProposals = proposals.filter(p => p.status === 0).length;
+  const totalVotes = proposals.reduce((sum, p) => sum + Number(p.votesFor) + Number(p.votesAgainst), 0);
 
-      // Update the proposal vote counts
-      setProposalList((prev) =>
-        prev.map((p) => {
-          if (p.title === proposalTitle) {
-            const oldVote = votes[proposalTitle];
-            let newForVotes = p.forVotes;
-            let newAgainstVotes = p.againstVotes;
-
-            // Remove the vote
-            if (oldVote === "for") {
-              newForVotes -= 1;
-            } else if (oldVote === "against") {
-              newAgainstVotes -= 1;
-            }
-
-            return { ...p, forVotes: newForVotes, againstVotes: newAgainstVotes };
-          }
-          return p;
-        })
-      );
-
-      setVotes((prev) => ({
-        ...prev,
-        [proposalTitle]: null,
-      }));
-    } catch (err) {
-      console.error("Error removing vote:", err);
-    } finally {
-      setVotingInProgress(null);
-    }
-  };
-
-  const activeProposals = vault?.activeProposals ?? 3;
-  const source = vault?.source === "http" ? "Live" : "Mock";
-  const lastSync = vault?.updatedAt ? new Date(vault.updatedAt).toLocaleString() : "Not synced yet";
-  const totalVotes = proposals.reduce((sum, p) => sum + p.forVotes + p.againstVotes, 0);
+  if (isDataLoading) {
+    return (
+      <div className="max-w-7xl mx-auto p-4 md:p-8 flex items-center justify-center min-h-[60vh]">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 text-blue-500 animate-spin mx-auto mb-4" />
+          <p className="text-zinc-400">Loading proposals...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <main className="max-w-7xl mx-auto p-4 md:p-8 text-zinc-300">
       <div className="space-y-8">
+        {/* Error Banner */}
+        {error && (
+          <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 flex items-center gap-3">
+            <AlertCircle className="w-5 h-5 text-red-400" />
+            <p className="text-sm text-red-400">{error}</p>
+          </div>
+        )}
+
+        {/* Success Banner */}
+        {voteSuccess && (
+          <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 flex items-center gap-3">
+            <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+            <p className="text-sm text-emerald-400">{voteSuccess}</p>
+          </div>
+        )}
+
+        {/* Loading Indicator */}
+        {isLoading && (
+          <div className="flex items-center justify-center py-2">
+            <Loader2 className="w-5 h-5 text-blue-500 animate-spin mr-2" />
+            <span className="text-sm text-zinc-500">Transaction in progress...</span>
+          </div>
+        )}
+
+        {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
           <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6">
             <p className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-2">Data Source</p>
-            <p className="text-xl font-bold text-white">{loading ? "Syncing..." : source}</p>
+            <p className="text-xl font-bold text-white">NeuroVault Contract</p>
           </div>
 
           <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6">
             <p className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-2">Current Status</p>
-            <p className="text-xl font-bold text-white">3 active • 1 pending</p>
+            <p className="text-xl font-bold text-white">
+              {activeProposals} active • {proposals.length - activeProposals} closed
+            </p>
           </div>
 
           <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6">
-            <p className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-2">Last Sync</p>
-            <p className="text-sm font-semibold text-white">{loading ? "Fetching latest" : lastSync}</p>
+            <p className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-2">Current APY</p>
+            <p className="text-xl font-bold text-white">
+              {treasuryState ? `${treasuryState.apy.toFixed(2)}%` : "--"}
+            </p>
           </div>
         </div>
 
@@ -199,7 +183,7 @@ export default function AppVotePage() {
             </p>
             <div>
               <span className="text-4xl font-bold text-white tracking-tight">{activeProposals}</span>
-              <p className="text-sm text-zinc-400 mt-1">Voting ongoing • {totalVotes} total votes</p>
+              <p className="text-sm text-zinc-400 mt-1">Voting ongoing • {totalVotes.toLocaleString()} total votes</p>
             </div>
           </div>
 
@@ -209,8 +193,12 @@ export default function AppVotePage() {
               Your Voting Power <Activity size={14} />
             </p>
             <div>
-              <span className="text-4xl font-bold text-white tracking-tight">1,250</span>
-              <p className="text-sm text-zinc-400 mt-1">0.45% of total protocol power</p>
+              <span className="text-4xl font-bold text-white tracking-tight">
+                {stakerInfo ? `${stakerInfo.votingPower.toFixed(2)}%` : "0%"}
+              </span>
+              <p className="text-sm text-zinc-400 mt-1">
+                {stakerInfo ? `${stakerInfo.staked} DOT staked` : "Connect wallet to see"}
+              </p>
             </div>
           </div>
 
@@ -227,49 +215,60 @@ export default function AppVotePage() {
 
         <div>
           <h2 className="text-xl font-bold text-white mb-6 flex items-center">
-            <Vote className="mr-2 text-zinc-400" /> Active & Upcoming Proposals
+            <Vote className="mr-2 text-zinc-400" /> Active & Recent Proposals
           </h2>
 
-          <div className="space-y-4">
-            {proposalList.map((proposal) => (
-              <ProposalCard 
-                key={proposal.title} 
-                {...proposal} 
-                userVote={votes[proposal.title] ?? null}
-                onVote={handleVote}
-                onRemoveVote={handleRemoveVote}
-                isVoting={votingInProgress === proposal.title}
-              />
-            ))}
-          </div>
+          {proposals.length === 0 ? (
+            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-8 text-center">
+              <p className="text-zinc-400">No proposals found. Check back later!</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {proposals.map((proposal) => (
+                <ProposalCard
+                  key={proposal.id}
+                  proposal={proposal}
+                  userVote={votes[proposal.id] ?? null}
+                  onVote={handleVote}
+                  onFinalize={handleFinalize}
+                  isVoting={votingInProgress === proposal.id}
+                  isLoading={isLoading}
+                />
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </main>
   );
 }
 
-function ProposalCard({ 
-  tag, 
-  status, 
-  title, 
-  desc, 
-  forVotes, 
-  againstVotes, 
-  deadline,
+function ProposalCard({
+  proposal,
   userVote,
   onVote,
-  onRemoveVote,
+  onFinalize,
   isVoting,
-}: Proposal & { 
+  isLoading,
+}: {
+  proposal: Proposal;
   userVote: "for" | "against" | null;
-  onVote: (proposalTitle: string, voteType: "for" | "against") => Promise<void>;
-  onRemoveVote: (proposalTitle: string) => Promise<void>;
+  onVote: (proposalId: number, voteType: "for" | "against") => Promise<void>;
+  onFinalize: (proposalId: number) => Promise<void>;
   isVoting: boolean;
+  isLoading: boolean;
 }) {
+  const forVotes = Number(proposal.votesFor);
+  const againstVotes = Number(proposal.votesAgainst);
   const totalVotes = forVotes + againstVotes;
   const forPercent = totalVotes > 0 ? (forVotes / totalVotes) * 100 : 0;
   const againstPercent = totalVotes > 0 ? (againstVotes / totalVotes) * 100 : 0;
-  const isActive = status === "Active";
+  const isActive = proposal.status === 0; // Pending
+  const isExpired = proposal.votingDeadline < Date.now();
+
+  // Map action type to tag
+  const actionTags = ["Swap", "Stake", "Transfer", "Rebalance", "None"];
+  const tag = actionTags[proposal.actionType] || "General";
 
   return (
     <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 hover:border-zinc-700 transition-all duration-300">
@@ -284,19 +283,29 @@ function ProposalCard({
               : "bg-zinc-800 text-zinc-400 border-zinc-700"
           }`}
         >
-          {isActive && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5" />}
-          {status}
+          {isActive && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5 animate-pulse" />}
+          {STATUS_MAP[proposal.status]}
+        </span>
+        <span className="text-xs text-zinc-500">
+          Confidence: {proposal.confidence}%
         </span>
       </div>
 
-      <h3 className="text-xl font-semibold text-white mb-2">{title}</h3>
-      <p className="text-sm text-zinc-400 mb-6 max-w-3xl">{desc}</p>
+      <h3 className="text-xl font-semibold text-white mb-2">
+        #{proposal.id}: {proposal.description}
+      </h3>
+      <p className="text-sm text-zinc-400 mb-2">
+        Amount: {proposal.amount} • Token: {proposal.token.slice(0, 6)}...{proposal.token.slice(-4)}
+      </p>
+      <p className="text-xs text-zinc-500 mb-6">
+        IPFS: {proposal.ipfsHash.slice(0, 20)}... • Proposer: {proposal.proposer.slice(0, 6)}...{proposal.proposer.slice(-4)}
+      </p>
 
       <div className="mb-6">
         <div className="flex justify-between text-xs text-zinc-500 mb-2 font-medium">
-          <span className="flex items-center text-zinc-300"><ThumbsUp size={12} className="mr-1" /> {forVotes} For</span>
-          <span>{totalVotes} total votes</span>
-          <span className="flex items-center text-zinc-400">{againstVotes} Against <ThumbsDown size={12} className="ml-1" /></span>
+          <span className="flex items-center text-zinc-300"><ThumbsUp size={12} className="mr-1" /> {forVotes.toLocaleString()} For</span>
+          <span>{totalVotes.toLocaleString()} total votes</span>
+          <span className="flex items-center text-zinc-400">{againstVotes.toLocaleString()} Against <ThumbsDown size={12} className="ml-1" /></span>
         </div>
 
         {totalVotes > 0 ? (
@@ -311,52 +320,58 @@ function ProposalCard({
 
       <div className="flex items-center justify-between pt-4 border-t border-zinc-800">
         <span className="text-xs text-zinc-500 flex items-center">
-          <Clock size={12} className="mr-1" /> Deadline: {deadline}
+          <Clock size={12} className="mr-1" />
+          {isExpired ? "Voting ended" : `Deadline: ${new Date(proposal.votingDeadline).toLocaleDateString()}`}
         </span>
-        {isActive ? (
+        
+        {isActive && !isExpired ? (
           userVote ? (
             <div className="flex items-center gap-2">
               <span className="text-xs font-semibold text-emerald-400">
                 ✓ You voted {userVote === "for" ? "For" : "Against"}
               </span>
               <button
-                onClick={() => onVote(title, userVote === "for" ? "against" : "for")}
-                disabled={isVoting}
+                onClick={() => onVote(proposal.id, userVote === "for" ? "against" : "for")}
+                disabled={isVoting || isLoading}
                 className="px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-300 bg-zinc-800 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-700 disabled:opacity-50"
               >
                 {isVoting ? "..." : "Change"}
               </button>
-              <button
-                onClick={() => onRemoveVote(title)}
-                disabled={isVoting}
-                className="px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-300 bg-red-900/30 text-red-400 hover:bg-red-900/50 border border-red-500/30 disabled:opacity-50"
-              >
-                {isVoting ? "..." : "Remove"}
-              </button>
             </div>
           ) : (
-            <button
-              onClick={() => {
-                // Open vote modal or inline voting UI
-                // For now, default to "for"
-                onVote(title, "for");
-              }}
-              disabled={isVoting}
-              className={`px-6 py-2 rounded-lg text-sm font-semibold transition-all duration-300 ${
-                isVoting
-                  ? "bg-zinc-800 text-zinc-500 cursor-not-allowed"
-                  : "bg-white text-zinc-950 hover:bg-zinc-200"
-              }`}
-            >
-              {isVoting ? "Voting..." : "Cast Your Vote"}
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => onVote(proposal.id, "for")}
+                disabled={isVoting || isLoading}
+                className="px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-300 bg-emerald-600 hover:bg-emerald-500 text-white disabled:opacity-50 flex items-center gap-1"
+              >
+                <ThumbsUp size={14} />
+                {isVoting ? "..." : "Vote For"}
+              </button>
+              <button
+                onClick={() => onVote(proposal.id, "against")}
+                disabled={isVoting || isLoading}
+                className="px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-300 bg-red-600 hover:bg-red-500 text-white disabled:opacity-50 flex items-center gap-1"
+              >
+                <ThumbsDown size={14} />
+                {isVoting ? "..." : "Vote Against"}
+              </button>
+            </div>
           )
+        ) : isActive && isExpired ? (
+          <button
+            onClick={() => onFinalize(proposal.id)}
+            disabled={isLoading}
+            className="px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-300 bg-blue-600 hover:bg-blue-500 text-white disabled:opacity-50"
+          >
+            {isLoading ? "..." : "Finalize Proposal"}
+          </button>
         ) : (
           <button
             disabled
             className="bg-zinc-800 text-zinc-500 cursor-not-allowed px-6 py-2 rounded-lg text-sm font-semibold"
           >
-            Voting Closed
+            {STATUS_MAP[proposal.status]}
           </button>
         )}
       </div>

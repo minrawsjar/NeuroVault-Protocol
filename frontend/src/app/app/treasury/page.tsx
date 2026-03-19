@@ -42,7 +42,7 @@ export default function AppTreasuryPage() {
   const usdcPct = vault?.usdcAllocationPct ?? 38;
   const apy = vault?.apyPct ?? 12.4;
   const stakers = vault?.stakers ?? 47;
-  const source = vault?.source === "http" ? "Live network data" : "Mock";
+  const source = vault?.source === "mock" ? "Mock" : "Live network data";
 
   const dotValue = tvl * (dotPct / 100);
   const usdcValue = tvl * (usdcPct / 100);
