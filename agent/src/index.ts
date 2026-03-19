@@ -12,7 +12,6 @@ app.use(express.json());
 // Validate env
 const requiredEnv = [
   "CLAUDE_API_KEY",
-  "WEB3_STORAGE_TOKEN",
   "RPC_URL",
   "CONTRACT_ADDRESS",
 ];
@@ -27,7 +26,6 @@ for (const key of requiredEnv) {
 // Agent config
 const agentConfig: AgentConfig = {
   claudeApiKey: process.env.CLAUDE_API_KEY!,
-  web3StorageToken: process.env.WEB3_STORAGE_TOKEN!,
   rpcUrl: process.env.RPC_URL!,
   contractAddress: process.env.CONTRACT_ADDRESS!,
   agentPrivateKey: process.env.AGENT_PRIVATE_KEY, // Optional - for submitting proposals

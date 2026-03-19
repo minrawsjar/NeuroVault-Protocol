@@ -1,11 +1,9 @@
 import { ClaudeAgent, ReasoningResult } from "./claude.js";
-import { IPFSStorage, ProposalBlob } from "./ipfs.js";
 import { VaultContract, TreasuryState, Goal, ProposalSummary } from "./contract.js";
 import cron from "node-cron";
 
 export interface AgentConfig {
   claudeApiKey: string;
-  web3StorageToken: string;
   rpcUrl: string;
   contractAddress: string;
   agentPrivateKey?: string;
@@ -26,7 +24,6 @@ export interface CycleResult {
 
 export class NeuroVaultAgent {
   private claude: ClaudeAgent;
-  private ipfs: IPFSStorage;
   private contract: VaultContract;
   private cycleCount = 0;
   private isRunning = false;
@@ -36,7 +33,6 @@ export class NeuroVaultAgent {
   constructor(config: AgentConfig) {
     this.config = config;
     this.claude = new ClaudeAgent(config.claudeApiKey);
-    this.ipfs = new IPFSStorage(config.web3StorageToken);
     this.contract = new VaultContract(
       config.rpcUrl,
       config.contractAddress,
@@ -118,33 +114,12 @@ export class NeuroVaultAgent {
         };
       }
 
-      // 5. Pin to IPFS
-      const blob: ProposalBlob = {
-        proposalId: cycleNumber,
-        timestamp,
-        model: "claude-sonnet-4-20250514",
-        confidence: reasoning.confidence,
-        reasoning: reasoning.reasoning,
-        context: {
-          treasuryState: {
-            totalValue: treasuryState.totalValue,
-            dotBalance: treasuryState.dotBalance,
-            usdcBalance: treasuryState.usdcBalance,
-            apy: treasuryState.apy,
-          },
-          goals: goals.filter(g => g.status === 1).map(g => ({ id: g.id, text: g.text })),
-        },
-        proposedAction: {
-          type: reasoning.action,
-          description: reasoning.description,
-          amount: reasoning.amount,
-          token: reasoning.token,
-          targetToken: reasoning.targetToken,
-        },
-      };
-
-      const ipfsHash = await this.ipfs.pinProposal(blob);
-      console.log(`📌 IPFS: ${ipfsHash}`);
+      // 5. Generate reasoning hash (IPFS placeholder - Utkarsh will add real IPFS)
+      const reasoningHash = "0x" + [...reasoning.reasoning].reduce((h, c) => {
+        return ((h << 5) - h + c.charCodeAt(0)) | 0;
+      }, 0).toString(16).padStart(64, "0");
+      const ipfsHash = `QmPlaceholder-${cycleNumber}-${Date.now()}`;
+      console.log(`📌 Reasoning hash: ${reasoningHash.substring(0, 16)}...`);
 
       // 6. Submit to contract (if we have private key)
       let proposalId: number | undefined;
