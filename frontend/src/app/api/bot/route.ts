@@ -98,7 +98,7 @@ function fallbackReply(command: string, snapshot: VaultSnapshot) {
     return "Rebalance suggestion: shift 5% from DOT to USDC over 2 tranches; reason: reduce volatility exposure while preserving yield target (confidence 72%).";
   }
 
-  return "Unknown command. Try: treasury status, stake <amount> <token>, governance queue, agent status, crosschain queue, register ens <name>.eth, resolve ens <name>.eth [mainnet|sepolia]";
+  return "Unknown command. Try: treasury status, stake <amount> <token>, governance queue, agent status, crosschain queue, bifrost status, register ens <name>.eth, resolve ens <name>.eth [mainnet|sepolia], suggest rebalance plan";
 }
 
 function isAdvisoryCommand(command: string): boolean {
@@ -294,8 +294,8 @@ export async function POST(req: NextRequest) {
     const advisory = isAdvisoryCommand(command);
 
     const prompt = advisory
-      ? `You are NeuroVault treasury strategy bot. Use this snapshot:\n- Treasury Value: $${snapshot.totalValueUsd.toLocaleString()}\n- Allocation: DOT ${snapshot.dotAllocationPct}%, USDC ${snapshot.usdcAllocationPct}%\n- APY: ${snapshot.apyPct}%\n- Active Proposals: ${snapshot.activeProposals}\n- Stakers: ${snapshot.stakers}\n\nUser command: ${command}\n\nRespond in ONE short line only in this exact style:\nRebalance suggestion: <action>; reason: <why> (confidence <0-100>%).`
-      : `You are NeuroVault treasury bot. Respond in ONE short line only.\n\nUser command: ${command}\n\nSupported operations:\n- treasury status\n- stake <amount> <DOT|USDC>\n- governance queue\n- agent status\n- crosschain queue\n- register ens <name>.eth\n- resolve ens <name>.eth [mainnet|sepolia]\n\nIf command is unsupported, reply with: Unknown command. Try: treasury status, stake <amount> <token>, governance queue, agent status, crosschain queue, register ens <name>.eth, resolve ens <name>.eth [mainnet|sepolia]`;
+      ? `Treasury: $${snapshot.totalValueUsd.toLocaleString()} | DOT ${snapshot.dotAllocationPct}% | USDC ${snapshot.usdcAllocationPct}% | APY ${snapshot.apyPct}% | Stakers ${snapshot.stakers}\n\nCommand: ${command}\n\nOne line response: Rebalance suggestion: <action>; reason: <why> (confidence <0-100%).\n\nExample: Rebalance suggestion: shift 5% from DOT to USDC; reason: reduce volatility (confidence 72%).`
+      : `You are NeuroVault treasury bot. Respond in ONE short line only.\n\nUser command: ${command}\n\nSupported operations:\n- treasury status\n- stake <amount> <DOT|USDC|PAS>\n- governance queue\n- agent status\n- crosschain queue\n- bifrost status\n- register ens <name>.eth\n- resolve ens <name>.eth [mainnet|sepolia]\n- suggest rebalance plan\n- rebalance suggestion\n- strategy\n\nIf command is unsupported, reply with: Unknown command. Try: treasury status, stake <amount> <token>, governance queue, agent status, crosschain queue, bifrost status, register ens <name>.eth, resolve ens <name>.eth [mainnet|sepolia], suggest rebalance plan`;
 
     console.log(`[BOT] Resolving Gemini model...`);
     const model = await resolveGeminiModel(GEMINI_API_KEY);
@@ -337,8 +337,9 @@ export async function POST(req: NextRequest) {
             },
           ],
           generationConfig: {
-            temperature: 0.2,
-            maxOutputTokens: advisory ? 220 : 120,
+            temperature: 0.1,
+            maxOutputTokens: advisory ? 250 : 120,
+            stopSequences: advisory ? [] : ["\n"],
           },
         }),
       }
@@ -372,8 +373,8 @@ export async function POST(req: NextRequest) {
     const data = await response.json();
     const reply = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || null;
 
-    if (advisory && (!reply || reply.length < 40 || !reply.toLowerCase().includes("reason:"))) {
-      console.log(`[BOT] Gemini advisory response incomplete, using fallback`);
+    if (advisory && (!reply || reply.length < 20)) {
+      console.log(`[BOT] Gemini advisory response too short, using fallback`);
       const fallback = "Rebalance suggestion: shift 5% from DOT to USDC over 2 tranches; reason: reduce volatility while preserving yield target (confidence 72%).";
       let lit = null;
       try {
