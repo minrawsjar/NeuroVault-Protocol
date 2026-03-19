@@ -25,7 +25,20 @@ To enable the `/app` bot console with Gemini, create a local env file:
 
 GEMINI_API_KEY=your_google_ai_api_key
 
+Optional (Lit Protocol sealing access control):
+
+LIT_AUTHORIZED_ADDRESSES=0xabc...,0xdef...
+
+Vault connection (dynamic status source):
+
+VAULT_DATA_SOURCE=mock
+# set to `http` when vault backend is live
+VAULT_STATUS_URL=https://your-vault-api.example.com/status
+
 Without this key, the bot route falls back to local simulated responses.
+
+Bot responses are also sealed with Lit when at least one authorized address is available
+(requester wallet address and/or `LIT_AUTHORIZED_ADDRESSES`).
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 

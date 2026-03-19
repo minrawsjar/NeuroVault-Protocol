@@ -2,6 +2,7 @@ import { NeuroVaultAgent, AgentConfig } from "./agent.js";
 import { config } from "dotenv";
 import express, { Request, Response } from "express";
 import cors from "cors";
+import { verifyMessage } from "ethers";
 
 config();
 
@@ -11,7 +12,7 @@ app.use(express.json());
 
 // Validate env
 const requiredEnv = [
-  "CLAUDE_API_KEY",
+  "GEMINI_API_KEY",
   "RPC_URL",
   "CONTRACT_ADDRESS",
 ];
@@ -25,12 +26,21 @@ for (const key of requiredEnv) {
 
 // Agent config
 const agentConfig: AgentConfig = {
-  claudeApiKey: process.env.CLAUDE_API_KEY!,
+  geminiApiKey: process.env.GEMINI_API_KEY!,
   rpcUrl: process.env.RPC_URL!,
   contractAddress: process.env.CONTRACT_ADDRESS!,
   agentPrivateKey: process.env.AGENT_PRIVATE_KEY, // Optional - for submitting proposals
   cycleInterval: process.env.CYCLE_INTERVAL || "*/30 * * * *",
-  minConfidence: parseInt(process.env.MIN_CONFIDENCE || "70"),
+  minConfidence: Number(process.env.MIN_CONFIDENCE || "0.70"),
+  cooldownMs: Number(process.env.CYCLE_COOLDOWN_MS || "60000"),
+  bifrostApyUrl: process.env.BIFROST_APY_URL,
+  acalaApyUrl: process.env.ACALA_APY_URL,
+  spendingLimitUsd: Number(process.env.SPENDING_LIMIT_USD || "0"),
+  approvedTargets: (process.env.APPROVED_TARGETS || "")
+    .split(",")
+    .map((x) => x.trim())
+    .filter(Boolean),
+  web3StorageToken: process.env.WEB3_STORAGE_TOKEN,
 };
 
 // Create agent
@@ -52,10 +62,60 @@ app.get("/status", (req, res) => {
 // Trigger manual cycle
 app.post("/cycle", async (req, res) => {
   try {
-    // This would need to be exposed from the agent class
-    res.json({ message: "Manual cycle triggered" });
+    const triggerType = String(req.body?.triggerType || "manual") as
+      | "manual"
+      | "goal_updated"
+      | "large_deposit"
+      | "proposal_resolved";
+
+    const result = await agent.requestCycle(triggerType);
+    res.json({ status: "ok", result });
   } catch (error) {
     res.status(500).json({ error: String(error) });
+  }
+});
+
+// External agent trigger endpoint (ENS optional, signature required)
+app.post("/propose", async (req, res) => {
+  try {
+    const callerAddress = String(req.body?.callerAddress || "").toLowerCase();
+    const signature = String(req.body?.signature || "");
+    const timestamp = Number(req.body?.timestamp || 0);
+    const scenario = String(req.body?.scenario || "external request");
+    const callerEns = String(req.body?.callerEns || "");
+
+    if (!callerAddress || !signature || !timestamp) {
+      return res.status(400).json({
+        error: "Missing callerAddress/signature/timestamp",
+      });
+    }
+
+    const now = Date.now();
+    if (Math.abs(now - timestamp) > 5 * 60 * 1000) {
+      return res.status(401).json({ error: "Signature timestamp expired" });
+    }
+
+    const message = `NeuroVault external trigger\nscenario:${scenario}\ntimestamp:${timestamp}`;
+    const recovered = verifyMessage(message, signature).toLowerCase();
+    if (recovered !== callerAddress) {
+      return res.status(401).json({ error: "Invalid signature" });
+    }
+
+    const result = await agent.requestCycle("external_agent");
+
+    return res.json({
+      status: "accepted",
+      callerAddress,
+      callerEns: callerEns || null,
+      scenario,
+      result,
+      auth: {
+        mode: "wallet_signature",
+        ensRequired: false,
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({ error: String(error) });
   }
 });
 
@@ -75,30 +135,37 @@ An autonomous AI treasury management agent.
 ## API
 
 ### POST /propose
-Submit a proposal to the treasury.
+Trigger a full reasoning cycle from another agent.
+
+Authentication: wallet signature required, ENS optional.
 
 **Request:**
 \`\`\`json
 {
-  "action": "rebalance",
-  "description": "Rebalance DOT/USDC to 60/40",
-  "amount": "1000",
-  "token": "DOT",
-  "targetToken": "USDC"
+  "callerAddress": "0x...",
+  "signature": "0x...",
+  "timestamp": 1710000000000,
+  "scenario": "Evaluate rebalance under volatility spike",
+  "callerEns": "risk-agent.eth"
 }
 \`\`\`
 
 **Response:**
 \`\`\`json
 {
-  "proposalId": 25,
-  "ipfsHash": "Qm...",
-  "txHash": "0x..."
+  "status": "accepted",
+  "result": {
+    "cycleNumber": 25,
+    "triggerType": "external_agent",
+    "action": "rebalance"
+  }
 }
 \`\`\`
 
 ## ENS
 neurovault.eth
+
+ENS is identity metadata only and not required for access.
 
 ## Verification
 All proposals include IPFS-stored reasoning with on-chain hash commitment.

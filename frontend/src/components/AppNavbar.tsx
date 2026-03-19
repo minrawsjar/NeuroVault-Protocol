@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Landmark, Bot, ShieldCheck } from "lucide-react";
+import { Home, Bot, Zap } from "lucide-react";
 import { WalletConnectButton } from "@/components/SimpleWallet";
 
 const appLinks = [
@@ -16,23 +16,16 @@ export default function AppNavbar() {
   const pathname = usePathname();
 
   return (
-    <header className="sticky top-0 z-40 bg-black/90 backdrop-blur border-b border-white/10">
+    <header className="sticky top-0 z-50 border-b border-zinc-800/90 bg-zinc-950/90 backdrop-blur-md">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
             <Link
               href="/"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold uppercase tracking-wider border border-white/20 hover:border-white/40"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider border border-zinc-700 bg-zinc-900 text-zinc-100 hover:border-zinc-500"
             >
               <Home className="w-3.5 h-3.5" strokeWidth={2.5} /> Back Home
             </Link>
-
-            <div className="hidden sm:flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-white/50">
-              <Landmark className="w-3.5 h-3.5" /> Treasury Status: $284.7K
-            </div>
-            <div className="hidden sm:flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-white/50">
-              <ShieldCheck className="w-3.5 h-3.5" /> APY 12.4%
-            </div>
           </div>
 
           <nav className="flex items-center gap-2 flex-wrap">
@@ -42,10 +35,10 @@ export default function AppNavbar() {
                 <Link
                   key={link.href}
                   href={link.href}
-                  className={`px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider border transition-colors ${
+                  className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider border transition-colors ${
                     active
-                      ? "bg-white text-black border-white"
-                      : "bg-transparent text-white/80 border-white/20 hover:border-white/40"
+                      ? "bg-white text-zinc-950 border-white"
+                      : "bg-zinc-900 text-zinc-300 border-zinc-700 hover:border-zinc-500"
                   }`}
                 >
                   {link.label}
@@ -54,13 +47,16 @@ export default function AppNavbar() {
             })}
             <Link
               href="/app#bot-console"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider border border-white/20 hover:border-white/40"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider border border-zinc-700 bg-zinc-900 text-zinc-300 hover:border-zinc-500"
             >
               <Bot className="w-3.5 h-3.5" strokeWidth={2.5} /> Bot Console
             </Link>
           </nav>
 
-          <div className="self-start lg:self-auto">
+          <div className="self-start lg:self-auto flex items-center gap-2">
+            <span className="hidden sm:inline-flex items-center gap-1.5 rounded-full border border-zinc-700 bg-zinc-900 px-2.5 py-1 text-[10px] font-semibold text-zinc-300">
+              <Zap className="w-3.5 h-3.5 text-blue-400" /> Live
+            </span>
             <WalletConnectButton />
           </div>
         </div>
