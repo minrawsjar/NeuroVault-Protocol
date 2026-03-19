@@ -15,7 +15,6 @@ const PREFERRED_GEMINI_MODELS = [
   "gemini-1.5-flash",
   "gemini-1.5-flash-latest",
   "gemini-1.5-pro",
-  "gemini-2.0-flash",
 ];
 
 let cachedModelName: string | null = null;
@@ -294,7 +293,7 @@ export async function POST(req: NextRequest) {
     const advisory = isAdvisoryCommand(command);
 
     const prompt = advisory
-      ? `Treasury: $${snapshot.totalValueUsd.toLocaleString()} | DOT ${snapshot.dotAllocationPct}% | USDC ${snapshot.usdcAllocationPct}% | APY ${snapshot.apyPct}% | Stakers ${snapshot.stakers}\n\nCommand: ${command}\n\nOne line response: Rebalance suggestion: <action>; reason: <why> (confidence <0-100%).\n\nExample: Rebalance suggestion: shift 5% from DOT to USDC; reason: reduce volatility (confidence 72%).`
+      ? `Treasury: $${snapshot.totalValueUsd.toLocaleString()}, DOT ${snapshot.dotAllocationPct}%, USDC ${snapshot.usdcAllocationPct}%, APY ${snapshot.apyPct}%\n\n${command}\n\nComplete this: Rebalance suggestion: <action>; reason: <why> (confidence <0-100>%).`
       : `You are NeuroVault treasury bot. Respond in ONE short line only.\n\nUser command: ${command}\n\nSupported operations:\n- treasury status\n- stake <amount> <DOT|USDC|PAS>\n- governance queue\n- agent status\n- crosschain queue\n- bifrost status\n- register ens <name>.eth\n- resolve ens <name>.eth [mainnet|sepolia]\n- suggest rebalance plan\n- rebalance suggestion\n- strategy\n\nIf command is unsupported, reply with: Unknown command. Try: treasury status, stake <amount> <token>, governance queue, agent status, crosschain queue, bifrost status, register ens <name>.eth, resolve ens <name>.eth [mainnet|sepolia], suggest rebalance plan`;
 
     console.log(`[BOT] Resolving Gemini model...`);
@@ -337,8 +336,8 @@ export async function POST(req: NextRequest) {
             },
           ],
           generationConfig: {
-            temperature: 0.1,
-            maxOutputTokens: advisory ? 250 : 120,
+            temperature: 0.7,
+            maxOutputTokens: advisory ? 1000 : 120,
             stopSequences: advisory ? [] : ["\n"],
           },
         }),
@@ -371,7 +370,13 @@ export async function POST(req: NextRequest) {
     }
 
     const data = await response.json();
-    const reply = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || null;
+    let reply = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || null;
+    
+    // Clean up markdown formatting from Gemini
+    if (reply) {
+      reply = reply.replace(/\*\*/g, '').replace(/\n\n/g, ' ').replace(/\n/g, ' ');
+      reply = reply.replace(/\s+/g, ' ').trim();
+    }
 
     if (advisory && (!reply || reply.length < 20)) {
       console.log(`[BOT] Gemini advisory response too short, using fallback`);
