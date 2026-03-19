@@ -1,70 +1,347 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# NeuroVault Frontend
 
-## Getting Started
+A **Next.js** dashboard for the NeuroVault Protocol. Provides staking UI, treasury overview, governance voting, bot console, and wallet integration via **Wagmi + Web3Modal** on the Polkadot Hub EVM (Paseo Testnet).
 
-First, run the development server:
+---
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## Tech Stack
+
+| Technology | Purpose |
+|-----------|---------|
+| **Next.js 14** | React framework with App Router |
+| **TailwindCSS** | Utility-first styling |
+| **Wagmi v2** | React hooks for Ethereum |
+| **Web3Modal** | Wallet connection modal (MetaMask, WalletConnect, etc.) |
+| **viem** | Low-level EVM interaction |
+| **TypeScript** | Type safety throughout |
+
+---
+
+## Pages
+
+### Public Pages
+
+| Route | File | Description |
+|-------|------|-------------|
+| `/` | `app/page.tsx` | Landing page — hero section, capabilities overview, architecture diagram, how it works, governance preview |
+| `/stake` | `app/stake/page.tsx` | Standalone staking page — stake PAS tokens, deposit USDC, view balances and voting power |
+
+### Dashboard Pages (App)
+
+| Route | File | Description |
+|-------|------|-------------|
+| `/app` | `app/app/page.tsx` | Main dashboard — treasury overview, agent status, activity feed, bot console |
+| `/app/treasury` | `app/app/treasury/page.tsx` | Detailed treasury breakdown — DOT/USDC balances, total value, allocation charts |
+| `/app/vote` | `app/app/vote/page.tsx` | Governance voting — view proposals, vote for/against, see results |
+| `/app/stake` | `app/app/stake/page.tsx` | In-app staking interface (same as `/stake` but within dashboard layout) |
+| `/app/overview` | `app/app/overview/page.tsx` | Portfolio overview — user's staked amounts, voting power, deposit history |
+
+### Admin
+
+| Route | File | Description |
+|-------|------|-------------|
+| `/admin` | `app/admin/page.tsx` | Admin panel for contract owner operations |
+
+---
+
+## API Routes
+
+Server-side Next.js API routes that proxy or aggregate data:
+
+| Route | Method | File | Description |
+|-------|--------|------|-------------|
+| `/api/bot` | POST | `app/api/bot/route.ts` | Bot console command handler — parses commands like `treasury status`, `stake 100 DOT`, `governance queue` |
+| `/api/vault/status` | GET | `app/api/vault/status/route.ts` | Treasury state — reads from chain or agent API |
+| `/api/agents` | GET | `app/api/agents/route.ts` | Agent discovery — returns agent capabilities and status |
+| `/api/crosschain` | GET | `app/api/crosschain/route.ts` | Cross-chain message queue — Hyperbridge dispatch status |
+| `/api/ens` | GET | `app/api/ens/route.ts` | ENS name resolution — resolve names via NeuroVaultENS contract |
+
+### Bot Console Commands
+
+The `/api/bot` endpoint processes these commands from the dashboard console:
+
+| Command | Description |
+|---------|-------------|
+| `treasury status` | Show treasury balances and total value |
+| `stake <amount> <DOT\|USDC>` | Stake tokens or deposit USDC |
+| `governance queue` | List pending proposals |
+| `agent status` | Show AI agent status and last cycle |
+| `crosschain queue` | Show pending Hyperbridge messages |
+| `register ens <name>.eth` | Register a new ENS name |
+
+---
+
+## Components
+
+### Core Components
+
+| Component | File | Description |
+|-----------|------|-------------|
+| **SimpleWallet** | `components/SimpleWallet.tsx` | Wallet connection button — connects via Web3Modal, shows address, balance, chain |
+| **AppNavbar** | `components/AppNavbar.tsx` | Dashboard navigation bar with page links and wallet status |
+| **Navbar** | `components/Navbar.tsx` | Landing page navigation bar |
+| **Logo** | `components/Logo.tsx` | NeuroVault brand logo |
+
+### Landing Page Sections
+
+| Component | File | Description |
+|-----------|------|-------------|
+| **HeroSection** | `components/HeroSection.tsx` | Hero with tagline, CTA buttons, animated background |
+| **CapabilitiesSection** | `components/CapabilitiesSection.tsx` | Feature cards — AI reasoning, IPFS storage, Lit encryption, Hyperbridge |
+| **HowItWorksSection** | `components/HowItWorksSection.tsx` | Step-by-step flow diagram — deposit → AI reasons → IPFS → vote → execute |
+| **TreasurySection** | `components/TreasurySection.tsx` | Live treasury preview — DOT/USDC balances, total value |
+| **GovernanceSection** | `components/GovernanceSection.tsx` | Governance preview — recent proposals, voting stats |
+
+### Dashboard Components
+
+| Component | File | Description |
+|-----------|------|-------------|
+| **ActivityFeed** | `components/ActivityFeed.tsx` | Real-time activity feed — proposals, votes, deposits, agent cycles |
+| **GoalsPanel** | `components/GoalsPanel.tsx` | Active DAO goals display |
+
+---
+
+## Hooks
+
+### `useNeuroVault` — Contract Interaction Hook
+
+**File**: `hooks/useNeuroVault.ts`
+
+The central hook for all on-chain interactions. Uses Wagmi's `useReadContract` and `useWriteContract` under the hood.
+
+#### Read Operations
+
+```typescript
+const {
+  treasuryState,     // { totalValueUsd, dotBalance, usdcBalance }
+  stakerInfo,        // { stakedAmount, votingPower, usdcDeposited, lastStakeTime }
+  activeGoals,       // string[]
+  recentProposals,   // Proposal[]
+  pasBalance,        // user's PAS token balance
+  usdcBalance,       // user's USDC token balance
+  pasAllowance,      // PAS allowance for vault contract
+  usdcAllowance,     // USDC allowance for vault contract
+} = useNeuroVault();
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+#### Write Operations
 
-## Gemini bot setup
+```typescript
+const {
+  stake,             // stake(amount) — stake PAS tokens
+  unstake,           // unstake(amount) — withdraw PAS
+  depositUsdc,       // depositUsdc(amount) — deposit USDC into treasury
+  approvePas,        // approve PAS spending for vault
+  approveUsdc,       // approve USDC spending for vault
+  vote,              // vote(proposalId, support) — cast vote
+} = useNeuroVault();
+```
 
-To enable the `/app` bot console with Gemini, create a local env file:
+#### Usage Example
 
-1. Create `.env.local` in the `frontend` folder
-2. Add:
+```tsx
+const { stake, stakerInfo, pasBalance } = useNeuroVault();
 
-GEMINI_API_KEY=your_google_ai_api_key
+// Stake 100 PAS tokens
+await stake(parseEther("100"));
 
-Optional (Lit Protocol sealing access control):
+// Check voting power
+console.log(stakerInfo.votingPower); // BigInt
+```
 
+---
+
+## Library
+
+### `contracts.ts` — ABIs & Addresses
+
+**File**: `lib/contracts.ts`
+
+Central configuration for all contract addresses and ABIs:
+
+```typescript
+// Contract addresses (Paseo testnet)
+export const NEUROVAULT_ADDRESS = "0x195FAc0dc3AFaD9AA7dE057B786b8613742d3D8e";
+export const ENS_ADDRESS = "0x3721472089bFe55c1E761c4Bb1776a731eca9817";
+export const PAS_TOKEN = "0x23CcE8797707c7b2Dd1354FCF4ef28256f98C00a";
+export const USDC_TOKEN = "0x34b179eCC554DE9bdBC9736E5E3E804e8318D8f3";
+
+// ABIs
+export const NEUROVAULT_ABI = [...];  // Full NeuroVault ABI
+export const ENS_ABI = [...];          // NeuroVaultENS ABI
+export const ERC20_ABI = [...];        // Standard ERC20 ABI
+```
+
+---
+
+## Providers
+
+### `Web3ModalProvider.tsx` — Wallet Configuration
+
+**File**: `providers/Web3ModalProvider.tsx`
+
+Configures Wagmi + Web3Modal with the Paseo testnet chain:
+
+```typescript
+const paseoChain = {
+  id: 420420417,
+  name: "Polkadot Hub TestNet",
+  nativeCurrency: { name: "PAS", symbol: "PAS", decimals: 18 },
+  rpcUrls: {
+    default: { http: ["https://eth-rpc-testnet.polkadot.io/"] },
+  },
+};
+```
+
+Supports MetaMask, WalletConnect, and other injected wallets via Web3Modal.
+
+---
+
+## Wallet Connection Flow
+
+1. User clicks "Connect Wallet" (SimpleWallet component)
+2. Web3Modal opens with wallet options
+3. User selects MetaMask (or other wallet)
+4. If not on Paseo testnet → prompt to switch network
+5. Connected: address + PAS balance displayed in navbar
+6. All contract interactions now available via `useNeuroVault` hook
+
+### Adding Paseo to MetaMask
+
+The app auto-prompts to add the chain, but manual config:
+
+| Setting | Value |
+|---------|-------|
+| Network Name | Polkadot Hub TestNet |
+| RPC URL | `https://eth-rpc-testnet.polkadot.io/` |
+| Chain ID | `420420417` |
+| Currency Symbol | PAS |
+
+---
+
+## Staking Flow (User Perspective)
+
+### Stake PAS Tokens
+
+```
+1. Connect wallet
+2. Navigate to /stake
+3. Enter PAS amount
+4. Click "Approve PAS" → MetaMask approval TX
+5. Click "Stake" → MetaMask stake TX
+6. Voting power updated immediately
+```
+
+### Deposit USDC
+
+```
+1. Connect wallet
+2. Navigate to /stake
+3. Switch to USDC tab
+4. Enter USDC amount
+5. Click "Approve USDC" → MetaMask approval TX
+6. Click "Deposit" → MetaMask deposit TX
+7. USDC deposited amount tracked per-user
+```
+
+### Vote on Proposal
+
+```
+1. Connect wallet (must have staked PAS)
+2. Navigate to /app/vote
+3. View proposal details + IPFS reasoning link
+4. Click "Vote For" or "Vote Against"
+5. MetaMask confirmation
+6. Vote weight = staked PAS amount
+```
+
+---
+
+## Environment Variables
+
+```env
+# Required for wallet connection
+NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=your_walletconnect_project_id
+
+# Optional: Gemini API key for bot console AI responses
+GEMINI_API_KEY=your_gemini_key
+
+# Optional: Lit Protocol authorized addresses
 LIT_AUTHORIZED_ADDRESSES=0xabc...,0xdef...
 
-Vault connection (live source):
-
-VAULT_DATA_SOURCE=onchain
-VAULT_RPC_URL=https://asset-hub-polkadot-eth-rpc.polkadot.io
-CONTRACT_ADDRESS=0xYourDeployedVault
-
-# Optional API integrations
+# Optional: Agent API URL
 AGENT_API_URL=http://127.0.0.1:3001
-CROSSCHAIN_API_URL=https://your-crosschain-api.example.com/queue
 
-# Optional HTTP vault adapter path
-VAULT_STATUS_URL=https://your-vault-api.example.com/status
+# Optional: Vault data source
+VAULT_DATA_SOURCE=onchain
+VAULT_RPC_URL=https://eth-rpc-testnet.polkadot.io/
+CONTRACT_ADDRESS=0x195FAc0dc3AFaD9AA7dE057B786b8613742d3D8e
+
+# Optional: Cross-chain API
+CROSSCHAIN_API_URL=https://your-crosschain-api.example.com/queue
 
 # Keep false for production-like behavior
 ALLOW_LOCAL_FALLBACK=false
+```
 
-With ALLOW_LOCAL_FALLBACK=false, endpoints return integration errors instead of local mock data.
+---
 
-Bot responses are also sealed with Lit when at least one authorized address is available
-(requester wallet address and/or `LIT_AUTHORIZED_ADDRESSES`).
+## Quick Start
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+# Install dependencies
+npm install
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+# Start development server
+npm run dev
+# → http://localhost:3000
 
-## Learn More
+# Build for production
+npm run build
+npm start
+```
 
-To learn more about Next.js, take a look at the following resources:
+---
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Project Structure
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```
+frontend/src/
+├── app/
+│   ├── page.tsx                    # Landing page
+│   ├── layout.tsx                  # Root layout (providers, fonts)
+│   ├── globals.css                 # TailwindCSS global styles
+│   ├── stake/page.tsx              # Standalone staking page
+│   ├── admin/page.tsx              # Admin panel
+│   ├── app/                        # Dashboard pages
+│   │   ├── page.tsx                # Main dashboard
+│   │   ├── layout.tsx              # Dashboard layout (sidebar)
+│   │   ├── treasury/page.tsx       # Treasury details
+│   │   ├── vote/page.tsx           # Governance voting
+│   │   ├── stake/page.tsx          # In-app staking
+│   │   └── overview/page.tsx       # Portfolio overview
+│   └── api/                        # Server-side API routes
+│       ├── bot/route.ts            # Bot console handler
+│       ├── vault/status/route.ts   # Treasury state
+│       ├── agents/route.ts         # Agent discovery
+│       ├── crosschain/route.ts     # Cross-chain queue
+│       └── ens/route.ts            # ENS resolution
+├── components/
+│   ├── SimpleWallet.tsx            # Wallet connection
+│   ├── AppNavbar.tsx               # Dashboard navbar
+│   ├── Navbar.tsx                  # Landing navbar
+│   ├── HeroSection.tsx             # Landing hero
+│   ├── CapabilitiesSection.tsx     # Feature cards
+│   ├── HowItWorksSection.tsx       # Flow diagram
+│   ├── TreasurySection.tsx         # Treasury preview
+│   ├── GovernanceSection.tsx       # Governance preview
+│   ├── ActivityFeed.tsx            # Activity feed
+│   ├── GoalsPanel.tsx              # Goals display
+│   └── Logo.tsx                    # Brand logo
+├── hooks/
+│   └── useNeuroVault.ts            # Contract interaction hook
+├── lib/
+│   └── contracts.ts                # ABIs + addresses
+└── providers/
+    └── Web3ModalProvider.tsx        # Wagmi + Web3Modal config
+```
