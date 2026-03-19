@@ -65,7 +65,7 @@ function fallbackReply(command: string, snapshot: VaultSnapshot) {
   }
 
   if (lower.includes("treasury") && lower.includes("status")) {
-    return `Treasury: $${snapshot.totalValueUsd.toLocaleString()} | DOT ${snapshot.dotAllocationPct}% | USDC ${snapshot.usdcAllocationPct}% | APY ${snapshot.apyPct}% | ${snapshot.stakers} stakers`;
+    return `Treasury: $${snapshot.totalValueUsd.toLocaleString()} | PAS ${snapshot.dotAllocationPct}% | USDC ${snapshot.usdcAllocationPct}% | APY ${snapshot.apyPct}% | ${snapshot.stakers} stakers`;
   }
 
   if (lower.startsWith("stake ")) {
@@ -117,7 +117,7 @@ function deterministicReply(command: string, snapshot: VaultSnapshot): string | 
   const crosschainSummary = getCrossChainSummary();
 
   if (lower === "treasury status") {
-    return `Treasury: $${snapshot.totalValueUsd.toLocaleString()} | DOT ${snapshot.dotAllocationPct}% | USDC ${snapshot.usdcAllocationPct}% | APY ${snapshot.apyPct}% | ${snapshot.stakers} stakers`;
+    return `Treasury: $${snapshot.totalValueUsd.toLocaleString()} | PAS ${snapshot.dotAllocationPct}% | USDC ${snapshot.usdcAllocationPct}% | APY ${snapshot.apyPct}% | ${snapshot.stakers} stakers`;
   }
 
   if (lower === "governance queue") {
@@ -293,7 +293,7 @@ export async function POST(req: NextRequest) {
     const advisory = isAdvisoryCommand(command);
 
     const prompt = advisory
-      ? `Treasury: $${snapshot.totalValueUsd.toLocaleString()}, DOT ${snapshot.dotAllocationPct}%, USDC ${snapshot.usdcAllocationPct}%, APY ${snapshot.apyPct}%\n\n${command}\n\nComplete this: Rebalance suggestion: <action>; reason: <why> (confidence <0-100>%).`
+      ? `Treasury: $${snapshot.totalValueUsd.toLocaleString()}, PAS ${snapshot.dotAllocationPct}%, USDC ${snapshot.usdcAllocationPct}%, APY ${snapshot.apyPct}%\n\n${command}\n\nComplete this: Rebalance suggestion: <action>; reason: <why> (confidence <0-100>%).`
       : `You are NeuroVault treasury bot. Respond in ONE short line only.\n\nUser command: ${command}\n\nSupported operations:\n- treasury status\n- stake <amount> <DOT|USDC|PAS>\n- governance queue\n- agent status\n- crosschain queue\n- bifrost status\n- register ens <name>.eth\n- resolve ens <name>.eth [mainnet|sepolia]\n- suggest rebalance plan\n- rebalance suggestion\n- strategy\n\nIf command is unsupported, reply with: Unknown command. Try: treasury status, stake <amount> <token>, governance queue, agent status, crosschain queue, bifrost status, register ens <name>.eth, resolve ens <name>.eth [mainnet|sepolia], suggest rebalance plan`;
 
     console.log(`[BOT] Resolving Gemini model...`);
