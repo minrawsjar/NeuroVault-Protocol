@@ -125,8 +125,11 @@ contract NeuroVault is ReentrancyGuard, Ownable {
     /// @notice Bifrost ISMP module address (on Bifrost parachain)
     bytes public bifrostModule;
 
-    /// @notice Voting window duration (1 hour for demo, owner can change for production)
+    /// @notice Default voting window duration (1 hour for demo, owner can change for production)
     uint256 public votingWindow = 1 hours;
+    
+    /// @notice Auto-finalization enabled (AI can disable for urgent proposals)
+    bool public autoFinalizeEnabled = true;
 
     /// @notice Only this address may call propose() — the AI agent
     address public agentAddress;
@@ -400,6 +403,11 @@ contract NeuroVault is ReentrancyGuard, Ownable {
         });
 
         emit ProposalCreated(proposalId, ipfsHash, actionType, confidence);
+        
+        // Auto-finalize any expired proposals if enabled
+        if (autoFinalizeEnabled) {
+            _autoFinalizeExpired();
+        }
     }
 
     // ─────────────────────────────────────────────
@@ -552,6 +560,54 @@ contract NeuroVault is ReentrancyGuard, Ownable {
         p.status = ProposalStatus.Expired;
         p.outcome = "Expired: not finalized in time";
         emit ProposalRejected(proposalId, "expired");
+    }
+
+    /**
+     * @notice Auto-finalize all expired proposals (internal function)
+     * @dev Called automatically when autoFinalizeEnabled is true
+     */
+    function _autoFinalizeExpired() internal {
+        for (uint256 i = 1; i <= proposalCount; i++) {
+            Proposal storage p = proposals[i];
+            if (p.status == ProposalStatus.Pending 
+                && block.timestamp > p.votingDeadline) {
+                _finalizeProposalInternal(i);
+            }
+        }
+    }
+
+    /**
+     * @notice Internal finalize proposal without access checks (called by auto-finalize)
+     */
+    function _finalizeProposalInternal(uint256 proposalId) internal {
+        Proposal storage p = proposals[proposalId];
+        
+        uint256 snapshot = p.snapshotTotalStaked;
+
+        // Check 2/3 supermajority: votesFor * 3 >= snapshotTotalStaked * 2
+        bool quorumMet = snapshot > 0
+            && (p.votesFor * QUORUM_DENOMINATOR) >= (snapshot * QUORUM_NUMERATOR);
+
+        if (!quorumMet) {
+            p.status = ProposalStatus.Rejected;
+            p.outcome = "Rejected: quorum not met";
+            emit ProposalRejected(proposalId, "quorum not met");
+            return;
+        }
+
+        // Check execution cooldown
+        if (block.timestamp < lastExecutionTime + EXECUTION_COOLDOWN) {
+            p.status = ProposalStatus.Approved;
+            p.outcome = "Approved: awaiting execution cooldown";
+            emit ProposalExecuted(proposalId, p.outcome);
+            return;
+        }
+
+        // Execute the proposal
+        p.status = ProposalStatus.Executed;
+        string memory outcome = _executeAction(p);
+        p.outcome = outcome;
+        emit ProposalExecuted(proposalId, outcome);
     }
 
     // ─────────────────────────────────────────────
@@ -745,6 +801,59 @@ contract NeuroVault is ReentrancyGuard, Ownable {
     function setVotingWindow(uint256 windowSeconds) external onlyOwner {
         require(windowSeconds >= 5 minutes, "NeuroVault: window too short");
         votingWindow = windowSeconds;
+    }
+
+    /// @notice Enable/disable auto-finalization (owner only)
+    function setAutoFinalizeEnabled(bool enabled) external onlyOwner {
+        autoFinalizeEnabled = enabled;
+    }
+
+    /// @notice AI agent propose with custom deadline (for urgent/extended proposals)
+    function proposeWithDeadline(
+        string calldata ipfsHash,
+        uint8 actionType,
+        string calldata description,
+        uint256 amount,
+        address token,
+        address targetToken,
+        uint256 confidence,
+        uint256 customDeadline
+    ) external onlyAgent returns (uint256 proposalId) {
+        require(actionType <= uint8(ActionType.None), "NeuroVault: invalid action type");
+        require(confidence <= 100, "NeuroVault: confidence out of range");
+        require(bytes(ipfsHash).length > 0, "NeuroVault: empty IPFS hash");
+        require(amount > 0 || actionType == uint8(ActionType.None), "NeuroVault: zero amount");
+        require(customDeadline > block.timestamp, "NeuroVault: deadline in past");
+        require(customDeadline <= block.timestamp + 7 days, "NeuroVault: deadline too far");
+
+        proposalCount++;
+        proposalId = proposalCount;
+
+        proposals[proposalId] = Proposal({
+            id: proposalId,
+            ipfsHash: ipfsHash,
+            actionType: ActionType(actionType),
+            description: description,
+            amount: amount,
+            token: token,
+            targetToken: targetToken,
+            confidence: confidence,
+            status: ProposalStatus.Pending,
+            votesFor: 0,
+            votesAgainst: 0,
+            snapshotTotalStaked: totalStaked,
+            createdAt: block.timestamp,
+            votingDeadline: customDeadline,
+            outcome: "",
+            proposer: msg.sender
+        });
+
+        emit ProposalCreated(proposalId, ipfsHash, actionType, confidence);
+        
+        // Auto-finalize any expired proposals if enabled
+        if (autoFinalizeEnabled) {
+            _autoFinalizeExpired();
+        }
     }
 
     /// @notice Receive native token for Hyperbridge fees

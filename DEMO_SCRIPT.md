@@ -114,7 +114,7 @@
 
 > "This proposal was created by the AI agent — the description, action type, confidence score, and the IPFS hash pointing to the full reasoning document are all stored on-chain.
 >
-> Stakers vote for or against using their proportional voting power. When the deadline passes, anyone can finalize it — and if approved, the contract executes the strategy autonomously."
+> The AI agent sets custom deadlines based on urgency — emergency rebalances get 15 minutes, regular strategies get 3-6 hours. And auto-finalization is enabled by default, so when the deadline passes, the contract automatically finalizes and executes approved proposals without any human intervention."
 
 **[SCREEN: Click 'Vote For' on an active proposal if wallet is connected]**
 
