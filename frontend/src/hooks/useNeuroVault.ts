@@ -59,13 +59,25 @@ const parseAmount = (amount: string, decimals: number = 18): bigint => {
   return ethers.parseUnits(amount, decimals);
 };
 
+// Static read-only provider — always points to Polkadot Hub TestNet RPC
+const RPC_URL = "https://eth-rpc-testnet.polkadot.io/";
+const readProvider = new ethers.JsonRpcProvider(RPC_URL, {
+  name: "Polkadot Hub TestNet",
+  chainId: ADDRESSES.chainId,
+});
+
+// Read-only contract instances (no signer needed)
+const readVault = new ethers.Contract(ADDRESSES.NeuroVault, NEUROVAULT_ABI, readProvider);
+const readPas = new ethers.Contract(ADDRESSES.PAS, ERC20_ABI, readProvider);
+const readUsdc = new ethers.Contract(ADDRESSES.USDC, ERC20_ABI, readProvider);
+
 // Hook for interacting with NeuroVault contract
 export function useNeuroVaultContract() {
   const [provider, setProvider] = useState<ethers.BrowserProvider | null>(null);
   const [signer, setSigner] = useState<ethers.JsonRpcSigner | null>(null);
-  const [contract, setContract] = useState<ethers.Contract | null>(null);
-  const [pasToken, setPasToken] = useState<ethers.Contract | null>(null);
-  const [usdcToken, setUsdcToken] = useState<ethers.Contract | null>(null);
+  const [writeContract, setWriteContract] = useState<ethers.Contract | null>(null);
+  const [writePasToken, setWritePasToken] = useState<ethers.Contract | null>(null);
+  const [writeUsdcToken, setWriteUsdcToken] = useState<ethers.Contract | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [networkError, setNetworkError] = useState<string | null>(null);
@@ -150,9 +162,9 @@ export function useNeuroVaultContract() {
 
         setProvider(browserProvider);
         setSigner(newSigner);
-        setContract(neuroVaultContract);
-        setPasToken(pasContract);
-        setUsdcToken(usdcContract);
+        setWriteContract(neuroVaultContract);
+        setWritePasToken(pasContract);
+        setWriteUsdcToken(usdcContract);
       } catch (err) {
         console.error("Failed to initialize contracts:", err);
         setError("Failed to initialize contracts");
@@ -171,15 +183,10 @@ export function useNeuroVaultContract() {
     }
   }, []);
 
-  // Get treasury state
+  // Get treasury state (uses static read provider — no MetaMask needed)
   const getTreasuryState = useCallback(async (): Promise<TreasuryState | null> => {
-    if (!contract) {
-      if (networkError) setError(networkError);
-      return null;
-    }
-    
     try {
-      const state = await contract.getTreasuryState();
+      const state = await readVault.getTreasuryState();
       return {
         totalValue: formatAmount(state.totalValue),
         dotBalance: formatAmount(state.dotBalance), // PAS balance
@@ -191,14 +198,12 @@ export function useNeuroVaultContract() {
       console.error("Error fetching treasury state:", err);
       return null;
     }
-  }, [contract]);
+  }, []);
 
-  // Get proposal details
+  // Get proposal details (uses static read provider)
   const getProposal = useCallback(async (id: number): Promise<Proposal | null> => {
-    if (!contract) return null;
-    
     try {
-      const proposal = await contract.getProposal(id);
+      const proposal = await readVault.getProposal(id);
       return {
         id: Number(proposal.id),
         ipfsHash: proposal.ipfsHash,
@@ -221,17 +226,12 @@ export function useNeuroVaultContract() {
       console.error("Error fetching proposal:", err);
       return null;
     }
-  }, [contract]);
+  }, []);
 
   // Get recent proposals
   const getRecentProposals = useCallback(async (count: number): Promise<Proposal[]> => {
-    if (!contract) {
-      if (networkError) setError(networkError);
-      return [];
-    }
-    
     try {
-      const views = await contract.getRecentProposals(count);
+      const views = await readVault.getRecentProposals(count);
       const proposals: Proposal[] = [];
       
       for (const view of views) {
@@ -246,17 +246,12 @@ export function useNeuroVaultContract() {
       console.error("Error fetching recent proposals:", err);
       return [];
     }
-  }, [contract, getProposal]);
+  }, [getProposal]);
 
-  // Get staker info
+  // Get staker info (uses static read provider)
   const getStakerInfo = useCallback(async (address: string): Promise<StakerInfo | null> => {
-    if (!contract) {
-      if (networkError) setError(networkError);
-      return null;
-    }
-    
     try {
-      const info = await contract.getStakerInfo(address);
+      const info = await readVault.getStakerInfo(address);
       return {
         staked: formatAmount(info.staked),
         votingPower: Number(info.votingPower) / 100, // Basis points to percentage
@@ -265,11 +260,11 @@ export function useNeuroVaultContract() {
       console.error("Error fetching staker info:", err);
       return null;
     }
-  }, [contract]);
+  }, []);
 
-  // Stake PAS tokens
+  // Stake PAS tokens (write — needs signer)
   const stake = useCallback(async (amount: string): Promise<boolean> => {
-    if (!contract || !pasToken) return false;
+    if (!writeContract || !writePasToken || !provider) return false;
     
     setIsLoading(true);
     setError(null);
@@ -277,13 +272,31 @@ export function useNeuroVaultContract() {
     try {
       const parsedAmount = parseAmount(amount);
       
-      // First approve the contract to spend tokens
-      const approveTx = await pasToken.approve(ADDRESSES.NeuroVault, parsedAmount);
-      await approveTx.wait();
+      // Get current gas price from network
+      const feeData = await provider.getFeeData();
+      const gasPrice = feeData.gasPrice || ethers.parseUnits("1", "gwei");
       
-      // Then stake
-      const stakeTx = await contract.stake(parsedAmount);
-      await stakeTx.wait();
+      console.log("Using gas price:", ethers.formatUnits(gasPrice, "gwei"), "gwei");
+      
+      // First approve the contract to spend tokens with explicit gas settings
+      console.log("Approving token spending...");
+      const approveTx = await writePasToken.approve(ADDRESSES.NeuroVault, parsedAmount, {
+        gasPrice: gasPrice,
+        gasLimit: 100000, // Explicit gas limit for approve
+      });
+      console.log("Approve tx sent:", approveTx.hash);
+      const approveReceipt = await approveTx.wait();
+      console.log("Approve tx confirmed:", approveReceipt?.hash);
+      
+      // Then stake with explicit gas settings
+      console.log("Staking tokens...");
+      const stakeTx = await writeContract.stake(parsedAmount, {
+        gasPrice: gasPrice,
+        gasLimit: 200000, // Explicit gas limit for stake
+      });
+      console.log("Stake tx sent:", stakeTx.hash);
+      const stakeReceipt = await stakeTx.wait();
+      console.log("Stake tx confirmed:", stakeReceipt?.hash);
       
       return true;
     } catch (err: any) {
@@ -293,18 +306,55 @@ export function useNeuroVaultContract() {
     } finally {
       setIsLoading(false);
     }
-  }, [contract, pasToken]);
+  }, [writeContract, writePasToken, provider]);
 
-  // Unstake PAS tokens
+  // Deposit USDC tokens (write — needs signer)
+  const depositUsdc = useCallback(async (amount: string): Promise<boolean> => {
+    if (!writeContract || !writeUsdcToken || !provider) return false;
+    
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const parsedAmount = parseAmount(amount, 6); // USDC has 6 decimals
+      
+      const feeData = await provider.getFeeData();
+      const gasPrice = feeData.gasPrice || ethers.parseUnits("1", "gwei");
+      
+      // Approve USDC spending
+      const approveTx = await writeUsdcToken.approve(ADDRESSES.NeuroVault, parsedAmount, {
+        gasPrice,
+        gasLimit: 100000,
+      });
+      await approveTx.wait();
+      
+      // Deposit USDC into vault
+      const depositTx = await writeContract.depositUsdc(parsedAmount, {
+        gasPrice,
+        gasLimit: 200000,
+      });
+      await depositTx.wait();
+      
+      return true;
+    } catch (err: any) {
+      console.error("Error depositing USDC:", err);
+      setError(err.message || "Failed to deposit USDC");
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [writeContract, writeUsdcToken, provider]);
+
+  // Unstake PAS tokens (write — needs signer)
   const unstake = useCallback(async (amount: string): Promise<boolean> => {
-    if (!contract) return false;
+    if (!writeContract) return false;
     
     setIsLoading(true);
     setError(null);
     
     try {
       const parsedAmount = parseAmount(amount);
-      const tx = await contract.unstake(parsedAmount);
+      const tx = await writeContract.unstake(parsedAmount);
       await tx.wait();
       return true;
     } catch (err: any) {
@@ -314,17 +364,17 @@ export function useNeuroVaultContract() {
     } finally {
       setIsLoading(false);
     }
-  }, [contract]);
+  }, [writeContract]);
 
-  // Vote on proposal
+  // Vote on proposal (write — needs signer)
   const vote = useCallback(async (proposalId: number, support: boolean): Promise<boolean> => {
-    if (!contract) return false;
+    if (!writeContract) return false;
     
     setIsLoading(true);
     setError(null);
     
     try {
-      const tx = await contract.vote(proposalId, support);
+      const tx = await writeContract.vote(proposalId, support);
       await tx.wait();
       return true;
     } catch (err: any) {
@@ -334,17 +384,17 @@ export function useNeuroVaultContract() {
     } finally {
       setIsLoading(false);
     }
-  }, [contract]);
+  }, [writeContract]);
 
-  // Finalize proposal
+  // Finalize proposal (write — needs signer)
   const finalizeProposal = useCallback(async (proposalId: number): Promise<boolean> => {
-    if (!contract) return false;
+    if (!writeContract) return false;
     
     setIsLoading(true);
     setError(null);
     
     try {
-      const tx = await contract.finalizeProposal(proposalId);
+      const tx = await writeContract.finalizeProposal(proposalId);
       await tx.wait();
       return true;
     } catch (err: any) {
@@ -354,46 +404,30 @@ export function useNeuroVaultContract() {
     } finally {
       setIsLoading(false);
     }
-  }, [contract]);
+  }, [writeContract]);
 
-  // Get token balances
+  // Get token balances (uses static read provider — no MetaMask needed)
   const getTokenBalances = useCallback(async (address: string): Promise<{ pas: string; usdc: string } | null> => {
-    console.log("getTokenBalances called with address:", address);
-    console.log("pasToken:", pasToken ? "initialized" : "null");
-    console.log("usdcToken:", usdcToken ? "initialized" : "null");
-    
-    if (!pasToken || !usdcToken) {
-      console.warn("Tokens not initialized");
-      if (networkError) setError(networkError);
-      return null;
-    }
-    
     try {
-      console.log("Fetching balances for:", address);
       const [pasBalance, usdcBalance] = await Promise.all([
-        pasToken.balanceOf(address),
-        usdcToken.balanceOf(address),
+        readPas.balanceOf(address),
+        readUsdc.balanceOf(address),
       ]);
       
-      console.log("Raw balances:", { pas: pasBalance.toString(), usdc: usdcBalance.toString() });
-      
-      const result = {
+      return {
         pas: formatAmount(pasBalance),
         usdc: formatAmount(usdcBalance, 6),
       };
-      
-      console.log("Formatted balances:", result);
-      return result;
     } catch (err) {
       console.error("Error fetching token balances:", err);
       return null;
     }
-  }, [pasToken, usdcToken, networkError]);
+  }, []);
 
   return {
     provider,
     signer,
-    contract,
+    contract: writeContract,
     isLoading,
     error,
     networkError,
@@ -403,6 +437,7 @@ export function useNeuroVaultContract() {
     getRecentProposals,
     getStakerInfo,
     stake,
+    depositUsdc,
     unstake,
     vote,
     finalizeProposal,

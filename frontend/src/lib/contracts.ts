@@ -2,7 +2,7 @@
 export const CONTRACTS = {
   paseo: {
     chainId: 420420417,
-    NeuroVault: "0xC6D07643f95a8eaC299299e2eb895DF0088354Ed",
+    NeuroVault: "0x1e7508e4Dcd408B15Ecffab8b8dAc02C71bc51A8",
     PAS: "0x23CcE8797707c7b2Dd1354FCF4ef28256f98C00a",
     USDC: "0x34b179eCC554DE9bdBC9736E5E3E804e8318D8f3",
     agentAddress: "0xc5b7b574EE84A9B59B475FE32Eaf908C246d3859",
@@ -142,6 +142,13 @@ export const NEUROVAULT_ABI = [
   {
     inputs: [{ internalType: "uint256", name: "amount", type: "uint256" }],
     name: "unstake",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [{ internalType: "uint256", name: "amount", type: "uint256" }],
+    name: "depositUsdc",
     outputs: [],
     stateMutability: "nonpayable",
     type: "function",

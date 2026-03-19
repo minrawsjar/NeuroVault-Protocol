@@ -119,6 +119,7 @@ export default function StakePage() {
     getStakerInfo, 
     getTokenBalances,
     stake, 
+    depositUsdc,
     unstake,
     isLoading,
     error,
@@ -134,31 +135,24 @@ export default function StakePage() {
   const [stakeSuccess, setStakeSuccess] = useState<string | null>(null);
   const [unstakeSuccess, setUnstakeSuccess] = useState<string | null>(null);
 
-  // Load contract data
+  // Load contract data via static RPC (no MetaMask dependency for reads)
   useEffect(() => {
     const loadContractData = async () => {
-      console.log("loadContractData - isConnected:", isConnected, "address:", address);
-      
-      if (!isConnected || !address) {
-        console.log("Skipping data load - not connected or no address");
-        setIsDataLoading(false);
-        return;
-      }
-
       setIsDataLoading(true);
       try {
-        console.log("Loading contract data for address:", address);
-        const [treasury, staker, balances] = await Promise.all([
-          getTreasuryState(),
-          getStakerInfo(address),
-          getTokenBalances(address),
-        ]);
-
-        console.log("Loaded data:", { treasury, staker, balances });
-        
+        // Treasury state always loads (static RPC provider)
+        const treasury = await getTreasuryState();
         if (treasury) setTreasuryState(treasury);
-        if (staker) setStakerInfo(staker);
-        if (balances) setTokenBalances(balances);
+
+        // Balances & staker info need a wallet address
+        if (address) {
+          const [staker, balances] = await Promise.all([
+            getStakerInfo(address),
+            getTokenBalances(address),
+          ]);
+          if (staker) setStakerInfo(staker);
+          if (balances) setTokenBalances(balances);
+        }
       } catch (err) {
         console.error("Error loading contract data:", err);
       } finally {
@@ -167,19 +161,29 @@ export default function StakePage() {
     };
 
     loadContractData();
-  }, [isConnected, address, getTreasuryState, getStakerInfo, getTokenBalances]);
+  }, [address, getTreasuryState, getStakerInfo, getTokenBalances]);
 
-  // Handle stake
+  // Handle stake/deposit
   const handleStake = async () => {
     if (!depositAmount || !isConnected) return;
     
-    const success = await stake(depositAmount);
+    let success = false;
+    if (depositToken === "PAS") {
+      success = await stake(depositAmount);
+    } else {
+      success = await depositUsdc(depositAmount);
+    }
+    
     if (success) {
-      setStakeSuccess(`Successfully staked ${depositAmount} PAS`);
+      setStakeSuccess(`Successfully deposited ${depositAmount} ${depositToken}`);
       setDepositAmount("");
       // Refresh data
-      const staker = await getStakerInfo(address!);
-      const balances = await getTokenBalances(address!);
+      const [treasury, staker, balances] = await Promise.all([
+        getTreasuryState(),
+        getStakerInfo(address!),
+        getTokenBalances(address!),
+      ]);
+      if (treasury) setTreasuryState(treasury);
       if (staker) setStakerInfo(staker);
       if (balances) setTokenBalances(balances);
       setTimeout(() => setStakeSuccess(null), 5000);

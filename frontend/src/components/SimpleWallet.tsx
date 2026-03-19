@@ -32,6 +32,7 @@ export function useWallet() {
   const { disconnect } = useDisconnect();
   const { data: balanceData } = useBalance({
     address,
+    chainId: 420420417, // Polkadot Hub TestNet
     query: {
       enabled: !!address,
     },
@@ -156,7 +157,7 @@ export function WalletConnectButton() {
           <div className="text-right">
             <div className="text-sm font-medium text-white">{formatAddress(address)}</div>
             <div className="text-xs text-gray-400">
-              {balance ?? '0.0000 ETH'}
+              {balance ?? '0.0000 PAS'}
             </div>
           </div>
         </div>

@@ -55,8 +55,16 @@ Thumbs.db
 *.lock
 !package-lock.json
 
-# Foundry
+# Hardhat / contracts
 contracts/cache/
+contracts/artifacts/
+contracts/typechain-types/
+contracts/deployments/
+contracts/node_modules/
+contracts/dist/
+contracts/.env
+
+# Foundry
 contracts/out/
 contracts/lib/
 contracts/artifacts/
