@@ -1,5 +1,4 @@
-// (base) adityamane@Adityas-MacBook-Air-2 contracts % npm run deploy:testnet
-
+// (base) adityamane@Adityas-MacBook-Air-2 contracts % npm run deploy:testnet 
 
 // > neurovault-contracts@1.0.0 deploy:testnet
 // > hardhat run scripts/deploy.ts --network paseo
@@ -10,17 +9,17 @@
 // Deployer:   0xd5720Ed6e70a128C025D0C284874cd1e33B39688
 // Network:    paseo
 // Chain ID:   420420417
-// Balance:    4999.99 ETH/WND
+// Balance:    4998.312923 ETH/WND
 
 // Deployment parameters:
 //   DOT token:       0x8caC5028A31bC2aF5f8A99A7555C62057eE7fEFE
 //   USDC token:      0xc394f94c7B93AE269F7AABDeca736A7b7768a388
 //   Hyperbridge:     0xbb26e04a71e7c12093e82b83ba310163eac186fa
 //   Agent address:   0xd5720Ed6e70a128C025D0C284874cd1e33B39688
-//   Bifrost dest:    0x504f4c4b41444f542d32303330
+//   Bifrost dest:    0x4b5553414d412d32303330
 
 // Deploying NeuroVault...
-// ✅ NeuroVault deployed at: 0x926aD18A9B3521f2BC9F102A97BD1a0056879C92
+// ✅ NeuroVault deployed at: 0xB7c2FA9789121a3b00E24E4Ee2CBA819297e864B
 
 // Running post-deployment setup...
 //   ✅ Goal added: "Maximize yield on DOT holdings via Bifrost vDOT li..."
@@ -30,15 +29,9 @@
 
 // ============================================================
 // Deployment complete!
-// Contract address: 0x926aD18A9B3521f2BC9F102A97BD1a0056879C92
+// Contract address: 0xB7c2FA9789121a3b00E24E4Ee2CBA819297e864B
 // Saved to:         /Users/adityamane/NeuroVault-Protocol/contracts/deployments/paseo.json
 // ============================================================
-
-// Next steps:
-//   1. Update CONTRACT_ADDRESS in agent/.env to: 0x926aD18A9B3521f2BC9F102A97BD1a0056879C92
-//   2. Update NEXT_PUBLIC_CONTRACT_ADDRESS in frontend/.env
-//   3. Run: npm run seed -- to populate test data
-//   4. Run: npm run verify -- to verify on block explorer
 
 import { ethers } from "hardhat";
 import * as dotenv from "dotenv";
@@ -76,12 +69,14 @@ async function main() {
   const hyperbridgeDispatch = hyperbridgeAddress || ethers.ZeroAddress;
 
   // Bifrost routing: encode as bytes. If not set, use empty bytes (cross-chain disabled)
+  // bifrostDest is the Hyperbridge state machine ID for Bifrost: "KUSAMA-2030"
   const bifrostDest = bifrostDestHex
-    ? bifrostDestHex
-    : ethers.toUtf8Bytes("POLKADOT-2030"); // Bifrost parachain ID
+    ? ethers.toUtf8Bytes(bifrostDestHex)
+    : ethers.toUtf8Bytes("KUSAMA-2030"); // Bifrost parachain on Kusama
+  // bifrostModule is the Bifrost ISMP precompile address, ABI-encoded as bytes
   const bifrostModule = bifrostModuleHex
-    ? bifrostModuleHex
-    : ethers.ZeroHash;
+    ? ethers.getBytes(bifrostModuleHex)  // encode address as 20-byte array
+    : ethers.getBytes("0x0000000000000000000000000000000000000401"); // Bifrost precompile default
 
   console.log("Deployment parameters:");
   console.log(`  DOT token:       ${dotTokenAddress}`);
