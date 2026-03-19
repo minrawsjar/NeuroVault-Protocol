@@ -123,29 +123,29 @@ Approved proposals can be executed — swapping tokens, staking DOT via Bifrost 
 ┌─────────────────────────────────────────────────────────────────────┐
 │                        NeuroVault Protocol                          │
 │                                                                     │
-│  ┌──────────┐    ┌──────────────┐    ┌───────────┐    ┌──────────┐ │
-│  │ Frontend │───►│  Agent API   │───►│  Gemini   │    │   Lit    │ │
-│  │ (Next.js)│    │ (Express.js) │    │ (AI LLM)  │    │ Protocol │ │
-│  │ :3000    │    │ :3001        │    └─────┬─────┘    │(Naga Dev)│ │
-│  └────┬─────┘    └──────┬───────┘          │          └────┬─────┘ │
-│       │                 │            ┌─────▼─────┐         │       │
+│  ┌──────────┐    ┌──────────────┐    ┌───────────┐    ┌──────────┐  │
+│  │ Frontend │───►│  Agent API   │───►│  Gemini   │    │   Lit    │  │
+│  │ (Next.js)│    │ (Express.js) │    │ (AI LLM)  │    │ Protocol │  │  
+│  │ :3000    │    │ :3001        │    └─────┬─────┘    │(Naga Dev)│  │
+│  └────┬─────┘    └──────┬───────┘          │          └────┬─────┘  │
+│       │                 │            ┌─────▼─────┐         │        │
 │       │                 │            │  Validate  │    Encrypt/     │
 │       │                 │            │  Output    │    Decrypt      │
-│       │                 │            └─────┬─────┘    API Keys     │
+│       │                 │            └─────┬─────┘    API Keys      │
 │       │                 │                  │                        │
-│       │          ┌──────▼───────┐   ┌──────▼───────┐               │
-│       │          │ IPFS Pinata  │   │  On-Chain    │               │
-│       │          │ (Pin JSON)   │   │  propose()   │               │
-│       │          └──────┬───────┘   └──────┬───────┘               │
+│       │          ┌──────▼───────┐   ┌──────▼───────┐                │
+│       │          │ IPFS Pinata  │   │  On-Chain    │                │
+│       │          │ (Pin JSON)   │   │  propose()   │                │
+│       │          └──────┬───────┘   └──────┬───────┘                │
 │       │                 │                  │                        │
-│  ┌────▼─────────────────▼──────────────────▼────────────────────┐  │
-│  │              Polkadot Hub EVM (Paseo Testnet)                │  │
-│  │  ┌─────────────┐  ┌──────────────┐  ┌────────────────────┐  │  │
-│  │  │ NeuroVault  │  │NeuroVaultENS │  │ Hyperbridge ISMP   │  │  │
-│  │  │ (Treasury)  │  │(Name Registry│  │ (Cross-chain to    │  │  │
-│  │  │             │  │             )│  │  Bifrost/vDOT)     │  │  │
-│  │  └─────────────┘  └──────────────┘  └────────────────────┘  │  │
-│  └──────────────────────────────────────────────────────────────┘  │
+│  ┌────▼─────────────────▼──────────────────▼────────────────────┐   │
+│  │              Polkadot Hub EVM (Paseo Testnet)                │   │
+│  │  ┌─────────────┐  ┌──────────────┐  ┌────────────────────┐   │   │
+│  │  │ NeuroVault  │  │NeuroVaultENS │  │ Hyperbridge ISMP   │   │   │
+│  │  │ (Treasury)  │  │(Name Registry│  │ (Cross-chain to    │   │   │
+│  │  │             │  │             )│  │  Bifrost/vDOT)     │   │   │
+│  │  └─────────────┘  └──────────────┘  └────────────────────┘   │   │
+│  └──────────────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -207,16 +207,16 @@ Every agent cycle follows a strict, deterministic pipeline:
 ├─ Stage 4: VALIDATE ─────────────────────────────────────────────────┤
 │  Action in allowlist?  Amount ≤ treasury balance?                   │
 │  Amount ≤ spending limit?  Target in approved list?                 │
-│  Confidence ≥ threshold?  Reasoning ≥ 80 characters?               │
-│  If ANY check fails → cycle ends, no proposal submitted.           │
+│  Confidence ≥ threshold?  Reasoning ≥ 80 characters?                │
+│  If ANY check fails → cycle ends, no proposal submitted.            │
 ├─ Stage 5: COMMIT ───────────────────────────────────────────────────┤
-│  Pin full reasoning blob to IPFS via Pinata. Returns real CID.     │
-│  Reasoning includes: what the AI saw, what it decided, why.        │
+│  Pin full reasoning blob to IPFS via Pinata. Returns real CID.      │
+│  Reasoning includes: what the AI saw, what it decided, why.         │
 ├─ Stage 6: PROPOSE ──────────────────────────────────────────────────┤
-│  Call propose() on NeuroVault contract with IPFS CID + params.     │
-│  Transaction confirmed on Polkadot Hub EVM.                        │
+│  Call propose() on NeuroVault contract with IPFS CID + params.      │
+│  Transaction confirmed on Polkadot Hub EVM.                         │
 ├─ Stage 7: COMPLETE ─────────────────────────────────────────────────┤
-│  Release lock. Update cycle timestamps. Log result.                │
+│  Release lock. Update cycle timestamps. Log result.                 │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -242,7 +242,7 @@ Every agent cycle follows a strict, deterministic pipeline:
 │  ├─ Approved target allowlist (only whitelisted tokens)         │
 │  ├─ Confidence threshold (AI must be ≥50% sure)                 │
 │  ├─ Amount sanity checks (can't exceed treasury balance)        │
-│  └─ Reasoning quality gate (must explain in ≥80 characters)    │
+│  └─ Reasoning quality gate (must explain in ≥80 characters)     │
 ├─────────────────────────────────────────────────────────────────┤
 │  Layer 2: SMART CONTRACT (on-chain, enforced by code)           │
 │  ├─ Only the registered agent wallet can call propose()         │
@@ -277,7 +277,7 @@ Every proposal creates a permanent audit trail:
 - **Block timestamp** → exact time of submission
 - **Vote record** → who voted, how they voted, final outcome
 
-Anyone can reconstruct the AI's decision by reading the IPFS blob and the on-chain state at that block.
+Anyone who staked can reconstruct the AI's decision by reading the IPFS blob and the on-chain state at that block.
 
 ---
 
@@ -359,6 +359,56 @@ The complete pipeline has been tested and confirmed working on Paseo testnet:
 ✅ ENS Registry            → 4 names registered and resolvable on-chain
 ✅ Staking (PAS + USDC)    → Deposit, per-user tracking, voting power working
 ✅ Frontend dashboard      → Live wallet connection, staking UI, treasury overview
+```
+
+---
+
+## Deployment
+
+### Frontend → Vercel
+
+```bash
+# 1. Install Vercel CLI
+npm i -g vercel
+
+# 2. Deploy from frontend directory
+cd frontend
+vercel
+
+# 3. Set environment variables in Vercel dashboard:
+#    NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID = your_project_id
+#    NEXT_PUBLIC_AGENT_API_URL = https://your-ec2-ip:3001
+```
+
+Or connect the GitHub repo directly at [vercel.com/new](https://vercel.com/new) → select `frontend/` as root directory.
+
+### Agent → Docker + AWS EC2
+
+```bash
+# On your EC2 instance:
+
+# 1. Clone the repo
+git clone https://github.com/minrawsjar/NeuroVault-Protocol.git
+cd NeuroVault-Protocol
+
+# 2. Configure agent environment
+cp agent/.env.example agent/.env
+nano agent/.env   # Fill in your API keys
+
+# 3. Deploy with one command
+bash deploy-aws.sh
+
+# Agent will be running at http://<your-ec2-ip>:3001
+```
+
+**EC2 Security Group**: Open inbound port **3001** (TCP) for agent API access.
+
+**Useful Docker commands:**
+```bash
+docker compose logs -f          # View live logs
+docker compose restart          # Restart agent
+docker compose down             # Stop agent
+docker compose up -d --build    # Rebuild and restart
 ```
 
 ---
