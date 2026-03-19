@@ -4,10 +4,8 @@ import { useEffect, useState } from "react";
 import {
   Activity,
   ArrowUpRight,
-  CheckCircle2,
   ChevronRight,
   Clock,
-  Cpu,
   FileText,
   PieChart,
   Shield,
@@ -191,37 +189,6 @@ export default function AppTreasuryPage() {
                 <Zap size={12} className="mr-1" /> Next Rebalance
               </p>
               <p className="text-xs text-zinc-400">Scheduled for March 22, 2026 based on AI market condition thresholds.</p>
-            </div>
-          </div>
-
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6">
-            <h3 className="text-sm font-semibold text-zinc-400 uppercase tracking-widest mb-6 flex items-center">
-              <Cpu size={16} className="mr-2 text-indigo-400" /> Privacy Engine
-            </h3>
-
-            <div className="space-y-3">
-              <div className="flex items-center justify-between p-3 bg-zinc-950 border border-zinc-800 rounded-xl">
-                <div>
-                  <p className="text-sm font-medium text-white">FHE Encrypted Vaults</p>
-                  <p className="text-xs text-zinc-500">Homomorphic state active</p>
-                </div>
-                <div className="flex items-center justify-center w-8 h-8 rounded-full bg-emerald-500/10">
-                  <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
-                  </span>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between p-3 bg-zinc-950 border border-zinc-800 rounded-xl">
-                <div>
-                  <p className="text-sm font-medium text-white">ZK-Proof Verification</p>
-                  <p className="text-xs text-zinc-500">Batched transactions</p>
-                </div>
-                <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-500/10">
-                  <CheckCircle2 size={16} className="text-blue-400" />
-                </div>
-              </div>
             </div>
           </div>
         </div>
