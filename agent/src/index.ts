@@ -177,10 +177,11 @@ All proposals include IPFS-stored reasoning with on-chain hash commitment.
 async function main() {
   await agent.start();
 
-  const PORT = process.env.PORT || 3001;
-  app.listen(PORT, () => {
-    console.log(`🌐 API server running on http://localhost:${PORT}`);
-    console.log(`📖 Skill manifest: http://localhost:${PORT}/.well-known/skill.md`);
+  const PORT = Number(process.env.PORT) || 3001;
+  const HOST = process.env.HOST || "0.0.0.0";
+  app.listen(PORT, HOST, () => {
+    console.log(`🌐 API server running on http://${HOST}:${PORT}`);
+    console.log(`📖 Skill manifest: http://${HOST}:${PORT}/.well-known/skill.md`);
   });
 }
 
