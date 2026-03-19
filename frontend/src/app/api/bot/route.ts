@@ -85,6 +85,10 @@ function fallbackReply(command: string, snapshot: VaultSnapshot) {
     return `Cross-chain queue: ${crosschainSummary.queued} queued, ${crosschainSummary.bridging} bridging, ${crosschainSummary.settled} settled via ${crosschainSummary.bridge}`;
   }
 
+  if (lower.includes("bifrost") || lower.includes("vdot") || lower.includes("slpx")) {
+    return `Bifrost SLPx: protocol=active | vDOT APY=~12-15% | min=10 xcDOT | route=Hyperbridge→Bifrost parachain | delivery=~45-60s after tx confirmation`;
+  }
+
   if (
     lower.includes("rebalance") ||
     lower.includes("suggest") ||
@@ -135,11 +139,20 @@ function deterministicReply(command: string, snapshot: VaultSnapshot): string | 
     return `ENS registration queued: ${target}`;
   }
 
-  const stakeMatch = input.match(/^stake\s+(\d+(?:\.\d+)?)\s+(DOT|USDC)$/i);
+  const stakeMatch = input.match(/^stake\s+(\d+(?:\.\d+)?)\s+(DOT|USDC|PAS)$/i);
   if (stakeMatch) {
     const amount = stakeMatch[1];
     const token = stakeMatch[2].toUpperCase();
     return `Queued stake command: ${amount} ${token}`;
+  }
+
+  if (lower === "bifrost status" || lower === "bifrost" || lower === "vdot status") {
+    return `Bifrost SLPx: protocol=active | vDOT APY=~12-15% | min=10 xcDOT | route=Hyperbridge→Bifrost parachain | delivery=~45-60s after tx confirmation`;
+  }
+
+  if (lower.startsWith("bifrost stake ")) {
+    const parts = lower.replace("bifrost stake ", "").trim();
+    return `Bifrost stake queued: ${parts} xcDOT → vDOT via SLPx create_order() | route: Polkadot Hub → Hyperbridge → Bifrost | estimated delivery: 45-60s`;
   }
 
   return null;

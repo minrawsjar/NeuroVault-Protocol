@@ -26,42 +26,13 @@ import GoalsPanel from "@/components/GoalsPanel";
 import { useWallet } from "@/components/SimpleWallet";
 import { useNeuroVaultContract, TreasuryState, Proposal, StakerInfo } from "@/hooks/useNeuroVault";
 
-const activities = [
-  {
-    id: "a1",
-    type: "agent_cycle",
-    message: "Agent completed cycle #184 and rebalanced to 62% PAS / 38% USDC",
-    timestamp: "2m ago",
-    txHash: "0x81F...2cA",
-  },
-  {
-    id: "a2",
-    type: "proposal",
-    message: "New proposal created: Increase stablecoin floor to 35%",
-    timestamp: "11m ago",
-    txHash: "0x4Dd...91B",
-  },
-  {
-    id: "a3",
-    type: "vote",
-    message: "Proposal #18 reached quorum with 71% approval",
-    timestamp: "29m ago",
-  },
-  {
-    id: "a4",
-    type: "deposit",
-    message: "Whale deposited 12,000 USDC into treasury vault",
-    timestamp: "54m ago",
-    txHash: "0xAa1...77e",
-  },
-  {
-    id: "a5",
-    type: "execution",
-    message: "Executed staking strategy on Polkadot Hub",
-    timestamp: "1h ago",
-    txHash: "0x99C...00f",
-  },
-] as const;
+type ActivityItem = {
+  id: string;
+  type: "agent_cycle" | "proposal" | "vote" | "execution" | "deposit" | "withdrawal";
+  message: string;
+  timestamp: string;
+  txHash?: string;
+};
 
 export default function AppPage() {
   const { address, isConnected } = useWallet();
@@ -80,6 +51,11 @@ export default function AppPage() {
   const [stakerInfo, setStakerInfo] = useState<StakerInfo | null>(null);
   const [tokenBalances, setTokenBalances] = useState<{ pas: string; usdc: string } | null>(null);
   const [isDataLoading, setIsDataLoading] = useState(true);
+
+  const [activities, setActivities] = useState<ActivityItem[]>([
+    { id: "a1", type: "agent_cycle", message: "Agent reasoning cycle started on Paseo testnet", timestamp: "just now" },
+    { id: "a2", type: "proposal", message: "Awaiting on-chain proposals...", timestamp: "loading" },
+  ]);
 
   // Fallback stats
   const [vaultStats, setVaultStats] = useState({
@@ -114,7 +90,7 @@ export default function AppPage() {
   const [isRunning, setIsRunning] = useState(false);
   const [consoleLines, setConsoleLines] = useState<string[]>([
     "> neurovault bot ready",
-    "> deterministic: treasury status | stake 250 PAS | governance queue | agent status | crosschain queue | register ens <name>.eth | resolve ens <name>.eth",
+    "> deterministic: treasury status | stake 250 PAS | governance queue | agent status | crosschain queue | bifrost status | register ens <name>.eth",
     "> gemini: suggest rebalance plan",
   ]);
 
@@ -140,6 +116,17 @@ export default function AppPage() {
         const recentProposals = await getRecentProposals(5);
         if (recentProposals.length > 0) {
           setProposals(recentProposals);
+          // Build activity feed from real proposals
+          const actionNames = ["Swap", "Stake", "Transfer", "Rebalance", "None"];
+          const statusNames = ["Pending", "Approved", "Rejected", "Executed", "Expired"];
+          const feed: ActivityItem[] = recentProposals.map((p, i) => ({
+            id: `p-${p.id}`,
+            type: p.status === 3 ? "execution" : p.status === 1 ? "vote" : "proposal",
+            message: `#${p.id} ${actionNames[p.actionType] ?? "Proposal"}: ${p.description.slice(0, 60)} — ${statusNames[p.status]}`,
+            timestamp: new Date(p.createdAt).toLocaleDateString(),
+            txHash: p.ipfsHash ? `${p.ipfsHash.slice(0, 8)}...` : undefined,
+          }));
+          setActivities(feed);
         }
 
         // Load staker info
@@ -472,7 +459,7 @@ export default function AppPage() {
               "governance queue",
               "agent status",
               "crosschain queue",
-              "register ens neurovault-ops.eth",
+              "bifrost status",
               "resolve ens neurovault.eth",
               "suggest rebalance plan",
             ].map((preset) => (
@@ -618,6 +605,39 @@ export default function AppPage() {
                 <span className="text-zinc-500">Bridge</span>
                 <span className="text-zinc-300 font-semibold">{crosschainSummary.bridge}</span>
               </div>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-emerald-500/20 bg-zinc-900 p-6">
+            <h3 className="text-sm font-semibold text-zinc-400 uppercase tracking-widest mb-4 flex items-center">
+              <TrendingUp size={16} className="mr-2 text-emerald-400" /> Bifrost SLPx
+            </h3>
+            <div className="space-y-3 text-sm">
+              <div className="flex justify-between">
+                <span className="text-zinc-500">Protocol</span>
+                <span className="text-white font-semibold">SLPx</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-zinc-500">vDOT APY</span>
+                <span className="text-emerald-400 font-semibold">~12–15%</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-zinc-500">Min Stake</span>
+                <span className="text-zinc-300 font-semibold">10 xcDOT</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-zinc-500">Delivery</span>
+                <span className="text-zinc-300 font-semibold">~45–60s</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-zinc-500">Route</span>
+                <span className="text-blue-400 font-semibold">Hyperbridge → Bifrost</span>
+              </div>
+            </div>
+            <div className="mt-4 pt-3 border-t border-zinc-800">
+              <p className="text-xs text-zinc-500">
+                AI agent auto-stakes DOT via cross-chain ISMP message when yield opportunity is detected.
+              </p>
             </div>
           </div>
         </div>
