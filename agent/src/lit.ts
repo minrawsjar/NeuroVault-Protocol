@@ -1,5 +1,5 @@
-import { LitNodeClient } from "@lit-protocol/lit-node-client";
-import { LIT_NETWORK, LIT_ABILITY } from "@lit-protocol/constants";
+import { nagaDev } from "@lit-protocol/networks";
+import { createLitClient } from "@lit-protocol/lit-client";
 import { ethers } from "ethers";
 
 export interface EncryptedSecret {
@@ -9,31 +9,40 @@ export interface EncryptedSecret {
 }
 
 export class LitEncryption {
-  private litNode: LitNodeClient;
+  private litClient: any;
   private signer: ethers.Signer;
   private chain: string;
+  private connected = false;
 
   constructor(signer: ethers.Signer, chain = "ethereum") {
     this.signer = signer;
     this.chain = chain;
-    this.litNode = new LitNodeClient({
-      litNetwork: "naga" as any,
-      debug: false,
-    });
   }
 
   async connect(): Promise<void> {
-    await this.litNode.connect();
+    this.litClient = await createLitClient({
+      network: nagaDev,
+    });
+    this.connected = true;
   }
 
   disconnect(): void {
-    this.litNode.disconnect();
+    if (this.litClient?.disconnect) {
+      this.litClient.disconnect();
+    }
+    this.connected = false;
+  }
+
+  isConnected(): boolean {
+    return this.connected;
   }
 
   async encryptSecret(
     secret: string,
     authorizedAddresses: string[]
   ): Promise<EncryptedSecret> {
+    if (!this.litClient) throw new Error("Lit client not connected");
+
     const accessControlConditions = authorizedAddresses.map((addr) => ({
       contractAddress: "",
       standardContractType: "",
@@ -55,7 +64,7 @@ export class LitEncryption {
           }, [])
         : accessControlConditions;
 
-    const { ciphertext, dataToEncryptHash } = await this.litNode.encrypt({
+    const { ciphertext, dataToEncryptHash } = await this.litClient.encrypt({
       accessControlConditions: conditions,
       dataToEncrypt: new TextEncoder().encode(secret),
     });
@@ -68,64 +77,16 @@ export class LitEncryption {
   }
 
   async decryptSecret(encrypted: EncryptedSecret): Promise<string> {
-    const sessionSigs = await this.getSessionSigs();
+    if (!this.litClient) throw new Error("Lit client not connected");
 
-    const decrypted = await this.litNode.decrypt({
+    const decrypted = await this.litClient.decrypt({
       accessControlConditions: encrypted.accessControlConditions,
       ciphertext: encrypted.ciphertext,
       dataToEncryptHash: encrypted.dataToEncryptHash,
-      sessionSigs,
       chain: this.chain,
     });
 
     return new TextDecoder().decode((decrypted as unknown) as Uint8Array);
-  }
-
-  private async getSessionSigs(): Promise<any> {
-    const address = await this.signer.getAddress();
-
-    const { LitActionResource } = await import("@lit-protocol/auth-helpers");
-    const resource = new LitActionResource("*");
-
-    const sessionSigs = await this.litNode.getSessionSigs({
-      chain: this.chain,
-      resourceAbilityRequests: [
-        {
-          resource,
-          ability: LIT_ABILITY.LitActionExecution as any,
-        },
-      ],
-      authNeededCallback: async (params: any) => {
-        const toSign = await this.createSiweMessage(params);
-        const signature = await this.signer.signMessage(toSign);
-
-        return {
-          sig: signature,
-          derivedVia: "web3.eth.personal.sign",
-          signedMessage: toSign,
-          address: address.toLowerCase(),
-        };
-      },
-    });
-
-    return sessionSigs;
-  }
-
-  private async createSiweMessage(params: any): Promise<string> {
-    const address = await this.signer.getAddress();
-    const nonce = await this.litNode.getLatestBlockhash();
-
-    return [
-      `NeuroVault Agent Authentication`,
-      ``,
-      `URI: ${params.uri || "https://neurovault.eth"}`,
-      `Version: 1`,
-      `Chain ID: 1`,
-      `Nonce: ${nonce}`,
-      `Issued At: ${new Date().toISOString()}`,
-      `Resources:`,
-      `- litAction://*`,
-    ].join("\n");
   }
 }
 
