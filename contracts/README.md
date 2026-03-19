@@ -27,28 +27,28 @@ All addresses are stored in `deployments/paseo.json`.
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│                     NeuroVault.sol                             │
-│                                                                │
+│                     NeuroVault.sol                           │
+│                                                              │
 │  ┌────────────┐  ┌────────────┐  ┌────────────┐              │
 │  │  Staking   │  │ Proposals  │  │  Voting    │              │
 │  │  (PAS +    │  │ (Agent     │  │ (Staker    │              │
 │  │   USDC)    │  │  submits)  │  │  weighted) │              │
 │  └──────┬─────┘  └──────┬─────┘  └──────┬─────┘              │
-│         │               │               │                      │
-│  ┌──────▼───────────────▼───────────────▼─────────────────┐   │
-│  │                   Execution Engine                      │   │
-│  │  ┌─────────────┐  ┌──────────────┐  ┌──────────────┐  │   │
-│  │  │ Token Swap  │  │ Bifrost Stake│  │  Transfer    │  │   │
-│  │  │ (internal)  │  │ (Hyperbridge)│  │  (ERC20)     │  │   │
-│  │  └─────────────┘  └──────────────┘  └──────────────┘  │   │
-│  └────────────────────────────────────────────────────────┘   │
-│                                                                │
-│  ┌────────────┐  ┌────────────┐                               │
-│  │   Goals    │  │  Access    │                               │
-│  │ (DAO sets  │  │  Control   │                               │
-│  │  strategy) │  │ (owner +   │                               │
-│  └────────────┘  │  agent)    │                               │
-│                  └────────────┘                               │
+│         │               │               │                    │
+│  ┌──────▼───────────────▼───────────────▼─────────────────┐  │
+│  │                   Execution Engine                     │  │
+│  │  ┌─────────────┐  ┌──────────────┐  ┌──────────────┐   │  │
+│  │  │ Token Swap  │  │ Bifrost Stake│  │  Transfer    │   │  │
+│  │  │ (internal)  │  │ (Hyperbridge)│  │  (ERC20)     │   │  │
+│  │  └─────────────┘  └──────────────┘  └──────────────┘   │  │
+│  └────────────────────────────────────────────────────────┘  │
+│                                                              │
+│  ┌────────────┐  ┌────────────┐                              │
+│  │   Goals    │  │  Access    │                              │
+│  │ (DAO sets  │  │  Control   │                              │
+│  │  strategy) │  │ (owner +   │                              │
+│  └────────────┘  │  agent)    │                              │
+│                  └────────────┘                              │
 └──────────────────────────────────────────────────────────────┘
 
 ┌──────────────────────┐    ┌──────────────────────────────────┐
@@ -315,48 +315,175 @@ The Hyperbridge dispatcher on Paseo is at: `0xbb26e04a71e7c12093e82b83ba310163ea
 
 ## IBifrost.sol — Bifrost vDOT Liquid Staking
 
-Interfaces for encoding Bifrost liquid staking calls that are dispatched via Hyperbridge.
+Complete interface definitions for **Bifrost SLPx** liquid staking protocol. Two integration paths are supported:
 
-### BifrostStakeCall
+### Two Integration Paths
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  PATH A: Direct SLPx (Moonbeam/Ethereum/Arbitrum/etc.)          │
+│  ├─ Call create_order() on MoonbeamSlpx contract                │
+│  ├─ Wait ~45-60 seconds for vToken delivery                     │
+│  ├─ Does NOT support atomic contract calls                      │
+│  └─ Best for frontend (Wagmi) or end-of-logic contract calls    │
+├──────────────────────────────────────────────────────────────────┤
+│  PATH B: Hyperbridge Cross-Chain (from Polkadot Hub)            │
+│  ├─ Encode BifrostStakeCall struct                              │
+│  ├─ Dispatch via Hyperbridge ISMP to Bifrost parachain          │
+│  └─ Used by NeuroVault (on Polkadot Hub, no SLPx deployment)   │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+### PATH A: ISLPx — Direct SLPx Interface
+
+The real Bifrost SLPx interface, directly from [Bifrost developer docs](https://docs.bifrost.io):
 
 ```solidity
-struct BifrostStakeCall {
-    BifrostAction action;    // Stake, Unstake, or Redeem
-    uint256 amount;          // Token amount (18 decimals)
-    address recipient;       // Who receives the vDOT
-    uint256 nonce;           // Replay protection
-}
+interface ISLPx {
+    // Get asset info (currencyId + minimum amount)
+    function addressToAssetInfo(address assetAddress)
+        external view returns (bytes2 currencyId, uint256 operationalMin);
 
+    // Create order to mint vAsset (stake) or redeem vAsset (unstake)
+    // IMPORTANT: Does NOT support atomic contract calls.
+    // vAsset arrives ~45-60 seconds after tx confirmation.
+    function create_order(
+        address assetAddress,   // token to stake or vToken to redeem
+        uint128 amount,         // amount to mint/redeem
+        uint64  dest_chain_id,  // chain ID for vToken delivery (1284 for Moonbeam)
+        bytes memory receiver,  // recipient address (20 bytes for EVM)
+        string memory remark,   // order identifier (< 32 bytes)
+        uint32 channel_id       // Revenue Sharing Program channel (0 if none)
+    ) external payable;
+}
+```
+
+### SLPx Contract Addresses
+
+| Chain | SLPx Contract Address |
+|-------|-----------------------|
+| **Moonbeam** | `0xF1d4797E51a4640a76769A50b57abE7479ADd3d8` |
+
+### Moonbeam Token Addresses
+
+| Token | Address | Currency ID | Operational Min |
+|-------|---------|-------------|-----------------|
+| **xcDOT** | `0xFfFFfFff1FcaCBd218EDc0EbA20Fc2308C778080` | `0x0800` | `10_000_000_000` (10 DOT planck) |
+| **xcASTR** | `0xFfFFFfffA893AD19e540E172C10d78D4d479B5Cf` | `0x0803` | `5_000_000_000_000_000_000` (5 ASTR) |
+| **GLMR** | `0x0000000000000000000000000000000000000802` | `0x0801` | `5_000_000_000_000_000_000` (5 GLMR) |
+
+### Wagmi Integration Example (Frontend)
+
+**Query asset info:**
+```typescript
+const { data: assetInfo } = useReadContract({
+  address: "0xF1d4797E51a4640a76769A50b57abE7479ADd3d8",
+  abi: slpxAbi,
+  functionName: "addressToAssetInfo",
+  args: ["0xFfFFfFff1FcaCBd218EDc0EbA20Fc2308C778080"], // xcDOT
+});
+// → { currencyId: '0x0800', operationalMin: 10000000000n }
+```
+
+**Mint vDOT (stake xcDOT):**
+```typescript
+// 1. Approve SLPx to spend xcDOT
+writeContract({
+  address: "0xFfFFfFff1FcaCBd218EDc0EbA20Fc2308C778080", // xcDOT
+  abi: erc20Abi,
+  functionName: "approve",
+  args: [
+    "0xF1d4797E51a4640a76769A50b57abE7479ADd3d8", // SLPx contract
+    parseUnits("1", 10), // 1 xcDOT (10 decimals)
+  ],
+});
+
+// 2. Create stake order
+writeContract({
+  address: "0xF1d4797E51a4640a76769A50b57abE7479ADd3d8", // SLPx
+  abi: slpxAbi,
+  functionName: "create_order",
+  args: [
+    "0xFfFFfFff1FcaCBd218EDc0EbA20Fc2308C778080", // xcDOT
+    parseUnits("1", 10),  // amount
+    1284,                  // Moonbeam chain ID
+    receiverAddress,       // receiver
+    "NeuroVault",          // remark
+    0,                     // channel_id (no RSP)
+  ],
+});
+// Wait ~45-60 seconds → vDOT arrives in receiver address
+```
+
+**Stake native GLMR:**
+```typescript
+writeContract({
+  address: "0xF1d4797E51a4640a76769A50b57abE7479ADd3d8",
+  abi: slpxAbi,
+  functionName: "create_order",
+  args: [
+    "0x0000000000000000000000000000000000000802", // GLMR
+    parseUnits("5", 18),  // 5 GLMR
+    1284,                  // Moonbeam
+    receiverAddress,
+    "NeuroVault",
+    0,
+  ],
+  value: parseUnits("5", 18), // Send GLMR as msg.value
+});
+```
+
+### PATH B: Hyperbridge Cross-Chain Encoding
+
+Used by NeuroVault on Polkadot Hub (no SLPx deployment):
+
+```solidity
 enum BifrostAction {
     Stake,      // DOT → vDOT
     Unstake,    // vDOT → DOT (unbonding period)
     Redeem      // Claim unbonded DOT
 }
-```
 
-### BifrostCallEncoder
-
-Helper library to ABI-encode staking calls for the Hyperbridge dispatch body:
-
-```solidity
-library BifrostCallEncoder {
-    function encode(BifrostStakeCall memory call) internal pure returns (bytes memory);
+struct BifrostStakeCall {
+    BifrostAction action;
+    uint256 amount;       // DOT in planck (1 DOT = 10^10)
+    address recipient;    // Who receives vDOT
+    uint256 nonce;        // Replay protection
 }
 ```
 
-### IBifrostVToken
+**BifrostCallEncoder** — encodes calls for Hyperbridge dispatch body:
 
-ERC20-like interface for the vDOT liquid staking token:
+```solidity
+library BifrostCallEncoder {
+    function encodeStake(uint256 amount, address recipient, uint256 nonce) → bytes
+    function encodeUnstake(uint256 amount, address recipient, uint256 nonce) → bytes
+    function encodeRedeem(uint256 amount, address recipient, uint256 nonce) → bytes
+}
+```
+
+**IBifrostVToken** — ERC20-like interface for vDOT on Polkadot Hub:
 
 ```solidity
 interface IBifrostVToken {
     function balanceOf(address account) external view returns (uint256);
     function transfer(address to, uint256 amount) external returns (bool);
     function getExchangeRate() external view returns (uint256);
+    // Exchange rate increases over time as staking rewards accrue
 }
 ```
 
-The exchange rate represents how much DOT one vDOT is worth — increases over time as staking rewards accrue.
+### How NeuroVault Uses Bifrost
+
+```
+NeuroVault._executeStake(amount)
+  │
+  ├─ 1. BifrostCallEncoder.encodeStake(amount, vault, proposalId)
+  ├─ 2. Build DispatchPost { dest: bifrostDest, body: encodedCall }
+  ├─ 3. hyperbridgeDispatch.quote(request) → fee
+  └─ 4. hyperbridgeDispatch.dispatch{value: fee}(request)
+       └─ Cross-chain message → Bifrost parachain → DOT staked → vDOT minted
+```
 
 ---
 
