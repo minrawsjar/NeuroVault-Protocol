@@ -100,7 +100,7 @@ export function WalletConnectButton() {
           </button>
           
           <button
-            onClick={disconnect}
+            onClick={() => disconnect()}
             className="p-2 text-gray-400 hover:text-red-500 transition-colors"
             title="Disconnect"
           >
