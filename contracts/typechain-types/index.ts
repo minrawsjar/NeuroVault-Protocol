@@ -38,3 +38,5 @@ export type { MockERC20 } from "./contracts/MockERC20";
 export { MockERC20__factory } from "./factories/contracts/MockERC20__factory";
 export type { NeuroVault } from "./contracts/NeuroVault";
 export { NeuroVault__factory } from "./factories/contracts/NeuroVault__factory";
+export type { NeuroVaultENS } from "./contracts/NeuroVaultENS";
+export { NeuroVaultENS__factory } from "./factories/contracts/NeuroVaultENS__factory";

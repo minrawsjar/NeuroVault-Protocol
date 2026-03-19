@@ -41,6 +41,7 @@ const agentConfig: AgentConfig = {
     .map((x) => x.trim())
     .filter(Boolean),
   web3StorageToken: process.env.WEB3_STORAGE_TOKEN,
+  enableLit: process.env.ENABLE_LIT === "true",
 };
 
 // Create agent

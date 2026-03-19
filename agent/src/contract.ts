@@ -1,5 +1,15 @@
-import { createPublicClient, createWalletClient, http, parseAbi, keccak256, toBytes } from "viem";
+import { createPublicClient, createWalletClient, http, parseAbi, keccak256, toBytes, defineChain } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
+import { ethers } from "ethers";
+
+const paseoChain = defineChain({
+  id: 420420417,
+  name: "Polkadot Hub TestNet",
+  nativeCurrency: { name: "PAS", symbol: "PAS", decimals: 18 },
+  rpcUrls: {
+    default: { http: ["https://eth-rpc-testnet.polkadot.io/"] },
+  },
+});
 
 const VAULT_ABI = parseAbi([
   "function getTreasuryState() view returns (uint256 totalValue, uint256 dotBalance, uint256 usdcBalance, uint256 activeProposals, uint256 apy)",
@@ -11,6 +21,13 @@ const VAULT_ABI = parseAbi([
   "function getApprovedTargets() view returns (address[])",
   "function propose(string calldata ipfsHash, uint8 actionType, string calldata description, uint256 amount, address token, address targetToken, uint256 confidence) external returns (uint256)",
   "event ProposalCreated(uint256 indexed proposalId, string ipfsHash, uint8 actionType, uint256 confidence)",
+]);
+
+const ENS_ABI = parseAbi([
+  "function resolve(string calldata name) view returns (address)",
+  "function reverseName(address addr) view returns (string)",
+  "function getRecord(string calldata name) view returns ((address addr, string name, string role, string description, string endpoint, uint256 registeredAt, bool active))",
+  "function getAllActiveRecords() view returns ((address addr, string name, string role, string description, string endpoint, uint256 registeredAt, bool active)[])",
 ]);
 
 export interface TreasuryState {
@@ -57,25 +74,35 @@ export class VaultContract {
   private publicClient: ReturnType<typeof createPublicClient>;
   private walletClient?: ReturnType<typeof createWalletClient>;
   private contractAddress: string;
+  private ensAddress?: string;
   private cachedTokens?: VaultTokens;
+  private ethersProvider: ethers.JsonRpcProvider;
+  private ethersSigner?: ethers.Wallet;
 
   constructor(
     rpcUrl: string,
     contractAddress: string,
-    privateKey?: string
+    privateKey?: string,
+    ensAddress?: string
   ) {
     this.contractAddress = contractAddress;
+    this.ensAddress = ensAddress;
 
     this.publicClient = createPublicClient({
+      chain: paseoChain,
       transport: http(rpcUrl),
     });
+
+    this.ethersProvider = new ethers.JsonRpcProvider(rpcUrl);
 
     if (privateKey) {
       const account = privateKeyToAccount(privateKey as `0x${string}`);
       this.walletClient = createWalletClient({
         account,
+        chain: paseoChain,
         transport: http(rpcUrl),
       });
+      this.ethersSigner = new ethers.Wallet(privateKey, this.ethersProvider);
     }
   }
 
@@ -151,28 +178,40 @@ export class VaultContract {
   }
 
   async submitProposal(proposal: ProposalSubmission): Promise<string> {
-    if (!this.walletClient) {
-      throw new Error("Wallet client not initialized - private key required");
+    if (!this.ethersSigner) {
+      throw new Error("Ethers signer not initialized - private key required");
     }
 
-    const hash = await this.walletClient.writeContract({
-      account: this.walletClient.account ?? null,
-      chain: this.walletClient.chain ?? null,
-      address: this.contractAddress as `0x${string}`,
-      abi: VAULT_ABI,
-      functionName: "propose",
-      args: [
-        proposal.ipfsHash,
-        proposal.actionType,
-        proposal.description,
-        proposal.amount,
-        proposal.token as `0x${string}`,
-        proposal.targetToken as `0x${string}`,
-        BigInt(proposal.confidence),
-      ],
-    });
+    console.log("📝 Submitting proposal on-chain...");
+    console.log(`   IPFS: ${proposal.ipfsHash}`);
+    console.log(`   Action: ${proposal.actionType}, Amount: ${proposal.amount}`);
 
-    return hash;
+    const PROPOSE_ABI = [
+      "function propose(string calldata ipfsHash, uint8 actionType, string calldata description, uint256 amount, address token, address targetToken, uint256 confidence) external returns (uint256)",
+    ];
+
+    const contract = new ethers.Contract(this.contractAddress, PROPOSE_ABI, this.ethersSigner);
+
+    const feeData = await this.ethersProvider.getFeeData();
+    const gasPrice = feeData.gasPrice || ethers.parseUnits("1", "gwei");
+
+    const tx = await contract.propose(
+      proposal.ipfsHash,
+      proposal.actionType,
+      proposal.description,
+      proposal.amount,
+      proposal.token,
+      proposal.targetToken,
+      BigInt(proposal.confidence),
+      { gasPrice, gasLimit: 500000 }
+    );
+
+    console.log(`⛓️  Proposal TX hash: ${tx.hash}`);
+
+    const receipt = await tx.wait();
+    console.log(`✅ Proposal TX confirmed in block ${receipt?.blockNumber}`);
+
+    return tx.hash;
   }
 
   async getGovernanceConstraints(opts?: {
@@ -214,5 +253,51 @@ export class VaultContract {
     const computed = keccak256(toBytes(blob));
     // In production, compare with on-chain stored hash
     return true;
+  }
+
+  // ─── ENS Resolution ───────────────────────────────────
+
+  async resolveENS(name: string): Promise<string | null> {
+    if (!this.ensAddress) return null;
+    try {
+      const addr = await this.publicClient.readContract({
+        address: this.ensAddress as `0x${string}`,
+        abi: ENS_ABI,
+        functionName: "resolve",
+        args: [name],
+      });
+      return addr as string;
+    } catch {
+      return null;
+    }
+  }
+
+  async reverseENS(addr: string): Promise<string | null> {
+    if (!this.ensAddress) return null;
+    try {
+      const name = await this.publicClient.readContract({
+        address: this.ensAddress as `0x${string}`,
+        abi: ENS_ABI,
+        functionName: "reverseName",
+        args: [addr as `0x${string}`],
+      });
+      return name as string;
+    } catch {
+      return null;
+    }
+  }
+
+  async getENSRecord(name: string): Promise<any | null> {
+    if (!this.ensAddress) return null;
+    try {
+      return await this.publicClient.readContract({
+        address: this.ensAddress as `0x${string}`,
+        abi: ENS_ABI,
+        functionName: "getRecord",
+        args: [name],
+      });
+    } catch {
+      return null;
+    }
   }
 }

@@ -77,6 +77,10 @@ declare module "hardhat/types/runtime" {
       name: "NeuroVault",
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.NeuroVault__factory>;
+    getContractFactory(
+      name: "NeuroVaultENS",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.NeuroVaultENS__factory>;
 
     getContractAt(
       name: "Ownable",
@@ -158,6 +162,11 @@ declare module "hardhat/types/runtime" {
       address: string | ethers.Addressable,
       signer?: ethers.Signer
     ): Promise<Contracts.NeuroVault>;
+    getContractAt(
+      name: "NeuroVaultENS",
+      address: string | ethers.Addressable,
+      signer?: ethers.Signer
+    ): Promise<Contracts.NeuroVaultENS>;
 
     deployContract(
       name: "Ownable",
@@ -223,6 +232,10 @@ declare module "hardhat/types/runtime" {
       name: "NeuroVault",
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.NeuroVault>;
+    deployContract(
+      name: "NeuroVaultENS",
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.NeuroVaultENS>;
 
     deployContract(
       name: "Ownable",
@@ -304,6 +317,11 @@ declare module "hardhat/types/runtime" {
       args: any[],
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.NeuroVault>;
+    deployContract(
+      name: "NeuroVaultENS",
+      args: any[],
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.NeuroVaultENS>;
 
     // default types
     getContractFactory(

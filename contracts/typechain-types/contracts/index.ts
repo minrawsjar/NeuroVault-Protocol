@@ -5,3 +5,4 @@ import type * as interfaces from "./interfaces";
 export type { interfaces };
 export type { MockERC20 } from "./MockERC20";
 export type { NeuroVault } from "./NeuroVault";
+export type { NeuroVaultENS } from "./NeuroVaultENS";

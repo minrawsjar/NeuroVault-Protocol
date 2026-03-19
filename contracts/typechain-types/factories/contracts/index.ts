@@ -4,3 +4,4 @@
 export * as interfaces from "./interfaces";
 export { MockERC20__factory } from "./MockERC20__factory";
 export { NeuroVault__factory } from "./NeuroVault__factory";
+export { NeuroVaultENS__factory } from "./NeuroVaultENS__factory";

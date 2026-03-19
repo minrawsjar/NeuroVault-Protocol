@@ -44,18 +44,25 @@ interface ProposalSummary {
 
 const MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 
-const SYSTEM_PROMPT = `You are NeuroVault, an AI treasury management agent. Your job is to manage a shared multi-sig treasury.
+const SYSTEM_PROMPT = `You are NeuroVault, an AI treasury management agent on Polkadot Hub. Your job is to manage a shared DAO treasury holding DOT and USDC tokens.
+
+AVAILABLE ACTIONS:
+- "stake": Stake DOT tokens via Bifrost for vDOT liquid staking yield (~12-15% APY). Token should be "DOT", targetToken should be "vDOT".
+- "swap": Swap between DOT and USDC to rebalance the portfolio. Token is what you sell, targetToken is what you buy.
+- "rebalance": Propose a rebalancing of treasury allocations.
+- "transfer": Transfer tokens to an approved address.
+- "none": No action needed right now.
 
 CRITICAL RULES:
-1. NEVER propose actions that exceed the treasury balance or spending limit.
-2. ALWAYS explain your reasoning in plain English.
-3. Provide a confidence score in range 0-1.
-4. Consider staker-approved goals when making decisions.
-5. If no action is needed, return action "none".
-6. Output ONLY valid JSON (no markdown, no code fence).
+1. NEVER propose amounts exceeding the treasury balance or spending limit.
+2. ALWAYS explain your reasoning thoroughly (at least 100 characters).
+3. Confidence score must be between 0 and 1.
+4. Consider staker-approved goals when deciding.
+5. Prefer proposing actions over "none" when goals exist and can be progressed.
+6. Output ONLY valid JSON — no markdown, no code fences, no extra text.
 
 Required JSON fields:
-action, description, amount, token, targetToken?, confidence, reasoning`;
+{ "action": string, "description": string, "amount": string, "token": string, "targetToken": string, "confidence": number, "reasoning": string }`;
 
 export class GeminiAgent {
   private apiKey: string;
@@ -130,7 +137,7 @@ export class GeminiAgent {
           ],
           generationConfig: {
             temperature: 0.2,
-            maxOutputTokens: 1200,
+            maxOutputTokens: 4096,
             responseMimeType: "application/json",
           },
         }),
@@ -152,15 +159,49 @@ export class GeminiAgent {
   }
 
   private extractAndParseJson(raw: string): any {
+    // Try direct parse first
     try {
       return JSON.parse(raw);
     } catch {
-      const jsonMatch = raw.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) {
-        throw new Error("Could not extract JSON from Gemini response");
-      }
-      return JSON.parse(jsonMatch[0]);
+      // ignore
     }
+
+    // Strip markdown code fences
+    let cleaned = raw.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
+
+    // Try parsing cleaned version
+    try {
+      return JSON.parse(cleaned);
+    } catch {
+      // ignore
+    }
+
+    // Find balanced JSON object by matching braces
+    const firstBrace = cleaned.indexOf("{");
+    if (firstBrace !== -1) {
+      let depth = 0;
+      for (let i = firstBrace; i < cleaned.length; i++) {
+        if (cleaned[i] === "{") depth++;
+        else if (cleaned[i] === "}") depth--;
+        if (depth === 0) {
+          try {
+            return JSON.parse(cleaned.slice(firstBrace, i + 1));
+          } catch {
+            break;
+          }
+        }
+      }
+    }
+
+    console.error("❌ Raw Gemini response (failed to parse):", raw.slice(0, 500));
+    return {
+      action: "none",
+      description: "Failed to parse LLM response",
+      amount: "0",
+      token: "DOT",
+      confidence: 0.1,
+      reasoning: `LLM returned unparseable response: ${raw.slice(0, 200)}`,
+    };
   }
 
   private buildPrompt(

@@ -44,6 +44,7 @@ export interface Proposal {
 
 export interface StakerInfo {
   staked: string;
+  usdcDeposited: string;
   votingPower: number;
 }
 
@@ -254,6 +255,7 @@ export function useNeuroVaultContract() {
       const info = await readVault.getStakerInfo(address);
       return {
         staked: formatAmount(info.staked),
+        usdcDeposited: formatAmount(info.usdcDeposited, 6),
         votingPower: Number(info.votingPower) / 100, // Basis points to percentage
       };
     } catch (err) {

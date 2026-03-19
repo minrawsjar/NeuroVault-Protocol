@@ -847,7 +847,13 @@ export interface NeuroVault extends BaseContract {
 
   getStakerInfo: TypedContractMethod<
     [staker: AddressLike],
-    [[bigint, bigint] & { staked: bigint; votingPower: bigint }],
+    [
+      [bigint, bigint, bigint] & {
+        staked: bigint;
+        usdcDeposited: bigint;
+        votingPower: bigint;
+      }
+    ],
     "view"
   >;
 
@@ -989,7 +995,13 @@ export interface NeuroVault extends BaseContract {
 
   stakers: TypedContractMethod<
     [arg0: AddressLike],
-    [[bigint, bigint] & { staked: bigint; lastVotedProposal: bigint }],
+    [
+      [bigint, bigint, bigint] & {
+        staked: bigint;
+        usdcDeposited: bigint;
+        lastVotedProposal: bigint;
+      }
+    ],
     "view"
   >;
 
@@ -1102,7 +1114,13 @@ export interface NeuroVault extends BaseContract {
     nameOrSignature: "getStakerInfo"
   ): TypedContractMethod<
     [staker: AddressLike],
-    [[bigint, bigint] & { staked: bigint; votingPower: bigint }],
+    [
+      [bigint, bigint, bigint] & {
+        staked: bigint;
+        usdcDeposited: bigint;
+        votingPower: bigint;
+      }
+    ],
     "view"
   >;
   getFunction(
@@ -1249,7 +1267,13 @@ export interface NeuroVault extends BaseContract {
     nameOrSignature: "stakers"
   ): TypedContractMethod<
     [arg0: AddressLike],
-    [[bigint, bigint] & { staked: bigint; lastVotedProposal: bigint }],
+    [
+      [bigint, bigint, bigint] & {
+        staked: bigint;
+        usdcDeposited: bigint;
+        lastVotedProposal: bigint;
+      }
+    ],
     "view"
   >;
   getFunction(

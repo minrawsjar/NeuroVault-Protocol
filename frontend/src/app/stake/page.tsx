@@ -209,9 +209,9 @@ export default function StakePage() {
 
   // Use real data or fallback
   const userStake = stakerInfo ? {
-    totalStaked: stakerInfo.staked,
+    totalStaked: (Number(stakerInfo.staked) + Number(stakerInfo.usdcDeposited)).toFixed(1),
     pasStaked: stakerInfo.staked,
-    usdcStaked: "0",
+    usdcStaked: stakerInfo.usdcDeposited,
     votingPower: `${stakerInfo.votingPower.toFixed(1)}%`,
     proposalsVoted: 18,
     rewards: "32.50",
@@ -634,7 +634,7 @@ export default function StakePage() {
                       className="flex-1 rounded-lg border border-zinc-700 bg-zinc-900 text-white px-4 py-2 text-sm focus:outline-none focus:border-orange-500"
                     />
                     <button
-                      onClick={() => setWithdrawAmount(withdrawToken === "PAS" ? userStake.pasStaked : "0")}
+                      onClick={() => setWithdrawAmount(withdrawToken === "PAS" ? userStake.pasStaked : userStake.usdcStaked)}
                       className="rounded-lg border border-zinc-700 bg-zinc-900 text-zinc-300 hover:text-white px-4 py-2 text-xs font-medium transition-colors"
                     >
                       Max

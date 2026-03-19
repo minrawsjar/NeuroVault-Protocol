@@ -102,6 +102,7 @@ contract NeuroVault is ReentrancyGuard, Ownable {
 
     struct StakerInfo {
         uint256 staked;
+        uint256 usdcDeposited;
         uint256 lastVotedProposal;
     }
 
@@ -452,6 +453,7 @@ contract NeuroVault is ReentrancyGuard, Ownable {
      */
     function depositUsdc(uint256 amount) external nonReentrant {
         require(amount > 0, "NeuroVault: zero amount");
+        stakers[msg.sender].usdcDeposited += amount;
         usdcToken.safeTransferFrom(msg.sender, address(this), amount);
         emit NewDeposit(msg.sender, address(usdcToken), amount);
     }
@@ -769,8 +771,9 @@ contract NeuroVault is ReentrancyGuard, Ownable {
     }
 
     /// @notice Get staker info
-    function getStakerInfo(address staker) external view returns (uint256 staked, uint256 votingPower) {
+    function getStakerInfo(address staker) external view returns (uint256 staked, uint256 usdcDeposited, uint256 votingPower) {
         staked = stakers[staker].staked;
+        usdcDeposited = stakers[staker].usdcDeposited;
         votingPower = totalStaked > 0 ? (staked * 10000) / totalStaked : 0; // basis points
     }
 

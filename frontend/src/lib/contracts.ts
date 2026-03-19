@@ -2,13 +2,76 @@
 export const CONTRACTS = {
   paseo: {
     chainId: 420420417,
-    NeuroVault: "0x1e7508e4Dcd408B15Ecffab8b8dAc02C71bc51A8",
+    NeuroVault: "0x195FAc0dc3AFaD9AA7dE057B786b8613742d3D8e",
     PAS: "0x23CcE8797707c7b2Dd1354FCF4ef28256f98C00a",
     USDC: "0x34b179eCC554DE9bdBC9736E5E3E804e8318D8f3",
+    NeuroVaultENS: "0x3721472089bFe55c1E761c4Bb1776a731eca9817",
     agentAddress: "0xc5b7b574EE84A9B59B475FE32Eaf908C246d3859",
     hyperbridgeDispatch: "0xbb26e04a71e7c12093e82b83ba310163eac186fa",
   },
 } as const;
+
+// ENS Registry ABI
+export const ENS_ABI = [
+  {
+    inputs: [{ internalType: "string", name: "name", type: "string" }],
+    name: "resolve",
+    outputs: [{ internalType: "address", name: "", type: "address" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [{ internalType: "address", name: "addr", type: "address" }],
+    name: "reverseName",
+    outputs: [{ internalType: "string", name: "", type: "string" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [{ internalType: "string", name: "name", type: "string" }],
+    name: "getRecord",
+    outputs: [
+      {
+        components: [
+          { internalType: "address", name: "addr", type: "address" },
+          { internalType: "string", name: "name", type: "string" },
+          { internalType: "string", name: "role", type: "string" },
+          { internalType: "string", name: "description", type: "string" },
+          { internalType: "string", name: "endpoint", type: "string" },
+          { internalType: "uint256", name: "registeredAt", type: "uint256" },
+          { internalType: "bool", name: "active", type: "bool" },
+        ],
+        internalType: "struct NeuroVaultENS.Record",
+        name: "",
+        type: "tuple",
+      },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "getAllActiveRecords",
+    outputs: [
+      {
+        components: [
+          { internalType: "address", name: "addr", type: "address" },
+          { internalType: "string", name: "name", type: "string" },
+          { internalType: "string", name: "role", type: "string" },
+          { internalType: "string", name: "description", type: "string" },
+          { internalType: "string", name: "endpoint", type: "string" },
+          { internalType: "uint256", name: "registeredAt", type: "uint256" },
+          { internalType: "bool", name: "active", type: "bool" },
+        ],
+        internalType: "struct NeuroVaultENS.Record[]",
+        name: "",
+        type: "tuple[]",
+      },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+] as const;
 
 // NeuroVault Contract ABI (simplified for frontend use)
 export const NEUROVAULT_ABI = [
@@ -98,6 +161,7 @@ export const NEUROVAULT_ABI = [
     name: "getStakerInfo",
     outputs: [
       { internalType: "uint256", name: "staked", type: "uint256" },
+      { internalType: "uint256", name: "usdcDeposited", type: "uint256" },
       { internalType: "uint256", name: "votingPower", type: "uint256" },
     ],
     stateMutability: "view",

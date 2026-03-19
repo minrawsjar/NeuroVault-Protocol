@@ -1,6 +1,8 @@
 import { GeminiAgent, ReasoningResult } from "./gemini.js";
 import { VaultContract, TreasuryState, Goal, ProposalSummary } from "./contract.js";
 import { commitReasoningBlob } from "./ipfs.js";
+import { LitEncryption, EncryptedSecret } from "./lit.js";
+import { ethers } from "ethers";
 import cron from "node-cron";
 
 export interface AgentConfig {
@@ -16,6 +18,7 @@ export interface AgentConfig {
   spendingLimitUsd?: number;
   approvedTargets?: string[];
   web3StorageToken?: string;
+  enableLit?: boolean;
 }
 
 export type TriggerType =
@@ -50,6 +53,8 @@ export class NeuroVaultAgent {
   private lastCycleCompletedAt = 0;
   private lastCycleResult?: CycleResult;
   private config: AgentConfig;
+  private litEncryption?: LitEncryption;
+  private encryptedApiKey?: EncryptedSecret;
 
   constructor(config: AgentConfig) {
     this.config = config;
@@ -57,7 +62,8 @@ export class NeuroVaultAgent {
     this.contract = new VaultContract(
       config.rpcUrl,
       config.contractAddress,
-      config.agentPrivateKey
+      config.agentPrivateKey,
+      process.env.ENS_ADDRESS
     );
   }
 
@@ -71,6 +77,31 @@ export class NeuroVaultAgent {
     console.log("🤖 NeuroVault Agent starting...");
     console.log(`📍 Contract: ${this.config.contractAddress}`);
     console.log(`⏱️  Cycle: ${this.config.cycleInterval || "*/30 * * * *"}`);
+
+    // Initialize Lit Protocol for key encryption
+    if (this.config.enableLit && this.config.agentPrivateKey) {
+      try {
+        console.log("🔐 Initializing Lit Protocol...");
+        const provider = new ethers.JsonRpcProvider(this.config.rpcUrl);
+        const signer = new ethers.Wallet(this.config.agentPrivateKey, provider);
+        this.litEncryption = new LitEncryption(signer, "ethereum");
+        await this.litEncryption.connect();
+
+        // Encrypt the Gemini API key — only the agent wallet can decrypt
+        const agentAddress = await signer.getAddress();
+        this.encryptedApiKey = await this.litEncryption.encryptSecret(
+          this.config.geminiApiKey,
+          [agentAddress]
+        );
+        console.log("🔐 Lit Protocol: API key encrypted and secured");
+        console.log(`   Access restricted to: ${agentAddress}`);
+      } catch (err) {
+        console.warn("⚠️  Lit Protocol init failed (non-fatal):", err);
+        // Continue without Lit — agent still works with plaintext key
+      }
+    } else {
+      console.log("🔐 Lit Protocol: disabled (set ENABLE_LIT=true to enable)");
+    }
 
     // Run immediate first cycle
     await this.requestCycle("startup");
@@ -86,6 +117,10 @@ export class NeuroVaultAgent {
 
   stop(): void {
     this.isServiceRunning = false;
+    if (this.litEncryption) {
+      this.litEncryption.disconnect();
+      console.log("🔐 Lit Protocol disconnected");
+    }
     console.log("🛑 Agent stopped");
   }
 
@@ -337,9 +372,12 @@ export class NeuroVaultAgent {
       errors.push("reasoning_too_short");
     }
 
-    if (reasoning.targetToken && constraints.approvedTargets.length > 0) {
+    if (reasoning.action !== "none" && reasoning.targetToken && constraints.approvedTargets.length > 0) {
       const allowed = constraints.approvedTargets.map((t) => t.toLowerCase());
-      if (!allowed.includes(reasoning.targetToken.toLowerCase())) {
+      const target = reasoning.targetToken.toLowerCase();
+      // Allow symbolic names (DOT, USDC, PAS, vDOT) in addition to addresses
+      const knownAliases: Record<string, boolean> = { dot: true, pas: true, usdc: true, vdot: true };
+      if (!allowed.includes(target) && !knownAliases[target]) {
         errors.push("target_not_approved");
       }
     }
