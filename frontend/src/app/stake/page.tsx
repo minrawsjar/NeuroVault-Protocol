@@ -110,6 +110,12 @@ export default function StakePage() {
     stakingSince: "45 days",
   };
 
+  const dotStakedNum = Number(mockUserStake.dotStaked.replace(/,/g, ""));
+  const usdcStakedNum = Number(mockUserStake.usdcStaked.replace(/,/g, ""));
+  const totalStakeNum = dotStakedNum + usdcStakedNum;
+  const dotPct = totalStakeNum > 0 ? Math.round((dotStakedNum / totalStakeNum) * 100) : 0;
+  const usdcPct = 100 - dotPct;
+
   const tabs: { key: Tab; label: string; icon: typeof Landmark }[] = [
     { key: "deposit", label: "Deposit", icon: ArrowDownToLine },
     { key: "withdraw", label: "Withdraw", icon: ArrowUpFromLine },
@@ -175,6 +181,27 @@ export default function StakePage() {
             </div>
           ))}
         </div>
+
+        <div className="neo-card p-4 mt-4">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs font-black uppercase tracking-wider">Stake Split</p>
+            <p className="text-[11px] font-bold text-foreground/60">DOT {dotPct}% · USDC {usdcPct}%</p>
+          </div>
+          <div className="relative h-6 border-2 border-border bg-surface-alt overflow-hidden">
+            <div className="absolute left-0 top-0 h-full bg-brand-pink" style={{ width: `${dotPct}%` }} />
+            <div className="absolute right-0 top-0 h-full bg-brand-cyan" style={{ width: `${usdcPct}%` }} />
+          </div>
+          <div className="grid grid-cols-2 gap-2 mt-3">
+            <div className="p-2 border-2 border-border bg-brand-pink/15">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-foreground/60">DOT Staked</p>
+              <p className="text-sm font-black">{mockUserStake.dotStaked} DOT</p>
+            </div>
+            <div className="p-2 border-2 border-border bg-brand-cyan/15">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-foreground/60">USDC Staked</p>
+              <p className="text-sm font-black">${mockUserStake.usdcStaked}</p>
+            </div>
+          </div>
+        </div>
       </section>
 
       {/* Main tabs area */}
@@ -208,37 +235,39 @@ export default function StakePage() {
               <div className="space-y-4">
                 {/* Token selector */}
                 <div>
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-foreground/50 block mb-2">Select Token</label>
-                  <div className="flex gap-2">
+                  <label className="text-[11px] font-bold uppercase tracking-widest text-foreground/60 block mb-2">Select Token</label>
+                  <div className="grid grid-cols-2 gap-3">
                     <button
                       onClick={() => setDepositToken("DOT")}
-                      className={`neo-btn px-4 py-2 text-sm ${depositToken === "DOT" ? "bg-brand-pink" : "bg-surface-alt"}`}
+                      className={`neo-btn px-4 py-3 text-sm text-left ${depositToken === "DOT" ? "bg-brand-pink" : "bg-surface-alt"}`}
                     >
-                      DOT
+                      <p className="text-[10px] uppercase tracking-wider font-bold opacity-70">DOT</p>
+                      <p className="text-sm font-black">{mockUserStake.dotStaked} available</p>
                     </button>
                     <button
                       onClick={() => setDepositToken("USDC")}
-                      className={`neo-btn px-4 py-2 text-sm ${depositToken === "USDC" ? "bg-brand-cyan" : "bg-surface-alt"}`}
+                      className={`neo-btn px-4 py-3 text-sm text-left ${depositToken === "USDC" ? "bg-brand-cyan" : "bg-surface-alt"}`}
                     >
-                      USDC
+                      <p className="text-[10px] uppercase tracking-wider font-bold opacity-70">USDC</p>
+                      <p className="text-sm font-black">${mockUserStake.usdcStaked} available</p>
                     </button>
                   </div>
                 </div>
 
                 {/* Amount input */}
                 <div>
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-foreground/50 block mb-2">Amount</label>
+                  <label className="text-[11px] font-bold uppercase tracking-widest text-foreground/60 block mb-2">Amount</label>
                   <div className="flex gap-2">
                     <input
                       type="number"
                       value={depositAmount}
                       onChange={(e) => setDepositAmount(e.target.value)}
                       placeholder={`0.00 ${depositToken}`}
-                      className="neo-input flex-1 text-sm"
+                      className="neo-input flex-1 text-base font-bold"
                     />
                     <button
                       onClick={() => setDepositAmount("1000")}
-                      className="neo-btn px-3 py-2 text-[10px] bg-surface-alt"
+                      className="neo-btn px-4 py-2 text-xs bg-surface-alt"
                     >
                       Max
                     </button>
@@ -246,12 +275,12 @@ export default function StakePage() {
                 </div>
 
                 {/* Quick amounts */}
-                <div className="flex gap-2">
+                <div className="grid grid-cols-4 gap-2">
                   {["100", "500", "1000", "5000"].map((amt) => (
                     <button
                       key={amt}
                       onClick={() => setDepositAmount(amt)}
-                      className="neo-btn px-3 py-1 text-[10px] bg-surface-alt flex-1"
+                      className="neo-btn px-3 py-2 text-xs bg-surface-alt"
                     >
                       {amt}
                     </button>
@@ -292,37 +321,39 @@ export default function StakePage() {
               <div className="space-y-4">
                 {/* Token selector */}
                 <div>
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-foreground/50 block mb-2">Select Token</label>
-                  <div className="flex gap-2">
+                  <label className="text-[11px] font-bold uppercase tracking-widest text-foreground/60 block mb-2">Select Token</label>
+                  <div className="grid grid-cols-2 gap-3">
                     <button
                       onClick={() => setWithdrawToken("DOT")}
-                      className={`neo-btn px-4 py-2 text-sm ${withdrawToken === "DOT" ? "bg-brand-pink" : "bg-surface-alt"}`}
+                      className={`neo-btn px-4 py-3 text-sm text-left ${withdrawToken === "DOT" ? "bg-brand-pink" : "bg-surface-alt"}`}
                     >
-                      DOT ({mockUserStake.dotStaked})
+                      <p className="text-[10px] uppercase tracking-wider font-bold opacity-70">DOT</p>
+                      <p className="text-sm font-black">{mockUserStake.dotStaked} staked</p>
                     </button>
                     <button
                       onClick={() => setWithdrawToken("USDC")}
-                      className={`neo-btn px-4 py-2 text-sm ${withdrawToken === "USDC" ? "bg-brand-cyan" : "bg-surface-alt"}`}
+                      className={`neo-btn px-4 py-3 text-sm text-left ${withdrawToken === "USDC" ? "bg-brand-cyan" : "bg-surface-alt"}`}
                     >
-                      USDC (${mockUserStake.usdcStaked})
+                      <p className="text-[10px] uppercase tracking-wider font-bold opacity-70">USDC</p>
+                      <p className="text-sm font-black">${mockUserStake.usdcStaked} staked</p>
                     </button>
                   </div>
                 </div>
 
                 {/* Amount input */}
                 <div>
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-foreground/50 block mb-2">Amount</label>
+                  <label className="text-[11px] font-bold uppercase tracking-widest text-foreground/60 block mb-2">Amount</label>
                   <div className="flex gap-2">
                     <input
                       type="number"
                       value={withdrawAmount}
                       onChange={(e) => setWithdrawAmount(e.target.value)}
                       placeholder={`0.00 ${withdrawToken}`}
-                      className="neo-input flex-1 text-sm"
+                      className="neo-input flex-1 text-base font-bold"
                     />
                     <button
                       onClick={() => setWithdrawAmount(withdrawToken === "DOT" ? "1800" : "650")}
-                      className="neo-btn px-3 py-2 text-[10px] bg-surface-alt"
+                      className="neo-btn px-4 py-2 text-xs bg-surface-alt"
                     >
                       Max
                     </button>

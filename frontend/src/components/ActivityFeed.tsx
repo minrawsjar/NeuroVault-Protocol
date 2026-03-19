@@ -1,6 +1,4 @@
 "use client";
-
-import { ActivityLog } from "@/lib/types";
 import {
   FileText,
   Vote,
@@ -10,6 +8,16 @@ import {
   Bot,
   ExternalLink,
 } from "lucide-react";
+
+type ActivityType = "proposal" | "vote" | "execution" | "deposit" | "withdrawal" | "agent_cycle";
+
+interface ActivityLog {
+  id: string;
+  type: ActivityType;
+  message: string;
+  timestamp: string;
+  txHash?: string;
+}
 
 interface Props {
   activities: ActivityLog[];

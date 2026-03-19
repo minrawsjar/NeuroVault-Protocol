@@ -1,6 +1,6 @@
 "use client";
 
-import { Target, ThumbsUp, Clock, Plus } from "lucide-react";
+import { Target, ThumbsUp, Plus } from "lucide-react";
 
 interface Goal {
   id: number;

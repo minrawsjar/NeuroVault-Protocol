@@ -1,0 +1,39 @@
+"use client";
+
+import { defaultWagmiConfig } from '@web3modal/wagmi/react/config'
+import { WagmiProvider } from 'wagmi'
+import { mainnet, polygon, arbitrum, optimism } from 'wagmi/chains'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { ReactNode } from 'react'
+
+// Web3Modal project ID
+const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'demo-project-id'
+
+const metadata = {
+  name: 'NeuroVault',
+  description: 'AI-Powered Treasury Protocol',
+  url: typeof window !== 'undefined' ? window.location.origin : 'https://neurovault.eth',
+  icons: ['https://neurovault.eth/favicon.ico']
+}
+
+// Create Wagmi config
+const chains = [mainnet, polygon, arbitrum, optimism] as const
+const config = defaultWagmiConfig({
+  chains,
+  projectId,
+  metadata,
+  ssr: true
+})
+
+// Create QueryClient
+const queryClient = new QueryClient()
+
+export function Web3ModalProvider({ children }: { children: ReactNode }) {
+  return (
+    <WagmiProvider config={config}>
+      <QueryClientProvider client={queryClient}>
+        {children}
+      </QueryClientProvider>
+    </WagmiProvider>
+  );
+}

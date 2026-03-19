@@ -16,6 +16,17 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## Gemini bot setup
+
+To enable the `/app` bot console with Gemini, create a local env file:
+
+1. Create `.env.local` in the `frontend` folder
+2. Add:
+
+GEMINI_API_KEY=your_google_ai_api_key
+
+Without this key, the bot route falls back to local simulated responses.
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
