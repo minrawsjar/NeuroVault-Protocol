@@ -41,6 +41,13 @@ const config: HardhatUserConfig = {
       accounts: [DEPLOYER_PRIVATE_KEY],
       gasPrice: "auto",
     },
+    // Moonbeam Mainnet — for Bifrost SLPx testing
+    moonbeam: {
+      url: process.env.MOONBEAM_RPC_URL || "https://rpc.api.moonbeam.network",
+      chainId: 1284,
+      accounts: [DEPLOYER_PRIVATE_KEY],
+      gasPrice: "auto",
+    },
   },
   paths: {
     sources: "./contracts",
