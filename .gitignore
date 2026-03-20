@@ -69,3 +69,4 @@ contracts/out/
 contracts/lib/
 contracts/artifacts/
 !contracts/lib/.gitkeep
+.env*.local
