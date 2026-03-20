@@ -315,6 +315,7 @@ export async function POST(req: NextRequest) {
         reply: fallback,
         provider: "fallback",
         reason: "missing_api_key",
+        debug: "GEMINI_API_KEY missing on server runtime",
         lit,
       });
     }
@@ -343,6 +344,7 @@ export async function POST(req: NextRequest) {
         reply: fallback,
         provider: "fallback",
         reason: "no_compatible_gemini_model",
+        debug: "Gemini models list request returned no compatible generateContent model",
         lit,
       });
     }
@@ -393,6 +395,7 @@ export async function POST(req: NextRequest) {
         reason: "gemini_request_failed",
         geminiStatus: response.status,
         geminiError: errorText,
+        debug: `Gemini HTTP ${response.status}${errorText ? `: ${errorText}` : ""}`,
         model,
         lit,
       });
@@ -423,6 +426,7 @@ export async function POST(req: NextRequest) {
         reply: fallback,
         provider: "fallback",
         reason: "gemini_incomplete_response",
+        debug: "Gemini response was too short for advisory output",
         model,
         lit,
       });
@@ -444,6 +448,7 @@ export async function POST(req: NextRequest) {
         reply: fallback,
         provider: "fallback",
         reason: "gemini_empty_response",
+        debug: "Gemini returned no text content",
         model,
         lit,
       });

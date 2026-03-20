@@ -350,6 +350,11 @@ export default function AppPage() {
       setConsoleLines((prev) => {
         const withoutThinking = prev.filter((line) => line !== "...thinking");
         const lines = [...withoutThinking.slice(-6), `${reply}${provider}${providerDetails}`];
+        if (data?.debug) {
+          lines.push(`debug: ${String(data.debug)}`);
+        } else if (data?.geminiError) {
+          lines.push(`debug: ${String(data.geminiError).slice(0, 220)}`);
+        }
         if (data?.lit?.ciphertext) {
           lines.push(`lit sealed: ${String(data.lit.dataToEncryptHash).slice(0, 18)}...`);
         }
