@@ -243,6 +243,7 @@ export default function AppVotePage() {
                 <ProposalCard
                   key={proposal.id}
                   proposal={proposal}
+                  currentTime={currentTime}
                   userVote={votes[proposal.id] ?? null}
                   onVote={handleVote}
                   onFinalize={handleFinalize}
@@ -260,6 +261,7 @@ export default function AppVotePage() {
 
 function ProposalCard({
   proposal,
+  currentTime,
   userVote,
   onVote,
   onFinalize,
@@ -267,6 +269,7 @@ function ProposalCard({
   isLoading,
 }: {
   proposal: Proposal;
+  currentTime: number;
   userVote: "for" | "against" | null;
   onVote: (proposalId: number, voteType: "for" | "against") => Promise<void>;
   onFinalize: (proposalId: number) => Promise<void>;
