@@ -3,8 +3,11 @@ import { encryptWithLit } from "@/lib/lit-protocol";
 import { getVaultSnapshot, type VaultSnapshot } from "@/lib/vault";
 import { resolveEnsNameOnchain, type EnsChain } from "@/lib/ens";
 import { deriveCrossChainQueue, getAgentRuntimeStatus, getEnsRecordsOnchain, registerEnsNameOnchain } from "@/lib/protocol-data";
+import { getServerGeminiApiKey } from "@/lib/server-env";
 
-const GEMINI_API_KEY = (process.env.GEMINI_API_KEY || "").trim();
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 const LIT_AUTHORIZED_ADDRESSES = (process.env.LIT_AUTHORIZED_ADDRESSES || "")
   .split(",")
   .map((a) => a.trim())
@@ -176,6 +179,7 @@ async function deterministicReply(command: string, snapshot: VaultSnapshot): Pro
 
 export async function POST(req: NextRequest) {
   try {
+    const geminiApiKey = getServerGeminiApiKey();
     const body = await req.json();
     const allowLocalFallback = (process.env.ALLOW_LOCAL_FALLBACK || "false").toLowerCase() === "true";
     const command = String(body?.command ?? "").trim();
@@ -295,7 +299,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ reply: deterministic, provider: "deterministic", lit });
     }
 
-    if (!GEMINI_API_KEY) {
+    if (!geminiApiKey) {
       console.log(`[BOT] No Gemini API key, using fallback`);
       const fallback = await fallbackReply(command, snapshot);
       let lit = null;
@@ -322,7 +326,7 @@ export async function POST(req: NextRequest) {
       : `You are NeuroVault treasury bot. Respond in ONE short line only.\n\nUser command: ${command}\n\nSupported operations:\n- treasury status\n- stake <amount> <DOT|USDC|PAS>\n- governance queue\n- agent status\n- crosschain queue\n- bifrost status\n- register ens <name>.eth\n- resolve ens <name>.eth [mainnet|sepolia]\n- suggest rebalance plan\n- rebalance suggestion\n- strategy\n\nIf command is unsupported, reply with: Unknown command. Try: treasury status, stake <amount> <token>, governance queue, agent status, crosschain queue, bifrost status, register ens <name>.eth, resolve ens <name>.eth [mainnet|sepolia], suggest rebalance plan`;
 
     console.log(`[BOT] Resolving Gemini model...`);
-    const model = await resolveGeminiModel(GEMINI_API_KEY);
+    const model = await resolveGeminiModel(geminiApiKey);
     if (!model) {
       console.log(`[BOT] No compatible Gemini model found, using fallback`);
       const fallback = await fallbackReply(command, snapshot);
@@ -351,7 +355,7 @@ export async function POST(req: NextRequest) {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-goog-api-key": GEMINI_API_KEY,
+          "x-goog-api-key": geminiApiKey,
         },
         body: JSON.stringify({
           contents: [

@@ -1,10 +1,15 @@
 import { NextResponse } from "next/server";
 import { CONTRACTS } from "@/lib/contracts";
 import { getAgentRuntimeStatus, getEnsRecordsOnchain } from "@/lib/protocol-data";
+import { getServerAgentApiUrl } from "@/lib/server-env";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export async function GET() {
   const allowLocalFallback = (process.env.ALLOW_LOCAL_FALLBACK || "false").toLowerCase() === "true";
   const configuredAgentAddress = CONTRACTS.paseo.agentAddress.toLowerCase();
+  const agentApiUrl = getServerAgentApiUrl();
 
   try {
     const [runtime, ensRecords] = await Promise.all([
@@ -24,7 +29,7 @@ export async function GET() {
       name: "neurovault.eth",
       role: "agent",
       description: "NeuroVault runtime agent",
-      endpoint: (process.env.AGENT_API_URL || "").trim(),
+      endpoint: agentApiUrl,
       registeredAt: 0,
       active: true,
     }]).map((record) => {

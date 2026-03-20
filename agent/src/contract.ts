@@ -15,6 +15,9 @@ const VAULT_ABI = parseAbi([
   "function getTreasuryState() view returns (uint256 totalValue, uint256 dotBalance, uint256 usdcBalance, uint256 activeProposals, uint256 apy)",
   "function getActiveGoals() view returns ((uint256 id, string text, uint8 status)[])",
   "function getRecentProposals(uint256 count) view returns ((uint256 id, uint8 status, string outcome)[])",
+  "function getProposal(uint256 proposalId) view returns ((uint256 id, string ipfsHash, uint8 actionType, string description, uint256 amount, address token, address targetToken, uint256 confidence, uint8 status, uint256 votesFor, uint256 votesAgainst, uint256 snapshotTotalStaked, uint256 createdAt, uint256 votingDeadline, string outcome, address proposer))",
+  "function hasReachedQuorum(uint256 proposalId) view returns (bool)",
+  "function finalizeProposal(uint256 proposalId)",
   "function dotToken() view returns (address)",
   "function usdcToken() view returns (address)",
   "function spendingLimitUsd() view returns (uint256)",
@@ -48,6 +51,22 @@ export interface ProposalSummary {
   id: number;
   status: number;
   outcome?: string;
+}
+
+export interface ProposalDetails extends ProposalSummary {
+  ipfsHash: string;
+  actionType: number;
+  description: string;
+  amount: string;
+  token: string;
+  targetToken: string;
+  confidence: number;
+  votesFor: string;
+  votesAgainst: string;
+  snapshotTotalStaked: string;
+  createdAt: number;
+  votingDeadline: number;
+  proposer: string;
 }
 
 export interface ProposalSubmission {
@@ -175,6 +194,97 @@ export class VaultContract {
       status: p.status,
       outcome: p.outcome || undefined,
     }));
+  }
+
+  async getProposal(proposalId: number): Promise<ProposalDetails> {
+    const proposal = (await this.publicClient.readContract({
+      address: this.contractAddress as `0x${string}`,
+      abi: VAULT_ABI,
+      functionName: "getProposal",
+      args: [BigInt(proposalId)],
+    })) as {
+      id: bigint;
+      ipfsHash: string;
+      actionType: number;
+      description: string;
+      amount: bigint;
+      token: string;
+      targetToken: string;
+      confidence: bigint;
+      status: number;
+      votesFor: bigint;
+      votesAgainst: bigint;
+      snapshotTotalStaked: bigint;
+      createdAt: bigint;
+      votingDeadline: bigint;
+      outcome: string;
+      proposer: string;
+    };
+
+    const tokenDecimals = proposal.token.toLowerCase() === (await this.getVaultTokens()).usdcToken ? 6 : 18;
+
+    return {
+      id: Number(proposal.id),
+      ipfsHash: proposal.ipfsHash,
+      actionType: Number(proposal.actionType),
+      description: proposal.description,
+      amount: ethers.formatUnits(proposal.amount, tokenDecimals),
+      token: proposal.token,
+      targetToken: proposal.targetToken,
+      confidence: Number(proposal.confidence),
+      status: Number(proposal.status),
+      votesFor: ethers.formatUnits(proposal.votesFor, 18),
+      votesAgainst: ethers.formatUnits(proposal.votesAgainst, 18),
+      snapshotTotalStaked: ethers.formatUnits(proposal.snapshotTotalStaked, 18),
+      createdAt: Number(proposal.createdAt),
+      votingDeadline: Number(proposal.votingDeadline),
+      outcome: proposal.outcome || undefined,
+      proposer: proposal.proposer,
+    };
+  }
+
+  async hasReachedQuorum(proposalId: number): Promise<boolean> {
+    return (await this.publicClient.readContract({
+      address: this.contractAddress as `0x${string}`,
+      abi: VAULT_ABI,
+      functionName: "hasReachedQuorum",
+      args: [BigInt(proposalId)],
+    })) as boolean;
+  }
+
+  async finalizeProposal(proposalId: number): Promise<string> {
+    if (!this.ethersSigner) {
+      throw new Error("Ethers signer not initialized - private key required");
+    }
+
+    const FINALIZE_ABI = [
+      "function finalizeProposal(uint256 proposalId)",
+    ];
+
+    const contract = new ethers.Contract(this.contractAddress, FINALIZE_ABI, this.ethersSigner);
+    const feeData = await this.ethersProvider.getFeeData();
+    const minPriorityFeePerGas = ethers.parseUnits("2", "gwei");
+    const maxPriorityFeePerGas =
+      feeData.maxPriorityFeePerGas && feeData.maxPriorityFeePerGas > minPriorityFeePerGas
+        ? feeData.maxPriorityFeePerGas
+        : minPriorityFeePerGas;
+    const baseMaxFeePerGas = feeData.maxFeePerGas || feeData.gasPrice || ethers.parseUnits("2000", "gwei");
+    const maxFeePerGas = baseMaxFeePerGas + maxPriorityFeePerGas;
+
+    const tx = await contract.finalizeProposal(BigInt(proposalId), {
+      maxFeePerGas,
+      maxPriorityFeePerGas,
+      gasLimit: 700000,
+    });
+
+    const receipt = await tx.wait();
+    console.log(`✅ Finalize TX confirmed in block ${receipt?.blockNumber}`);
+    return tx.hash;
+  }
+
+  async getRecentProposalDetails(count: number): Promise<ProposalDetails[]> {
+    const proposals = await this.getRecentProposals(count);
+    return Promise.all(proposals.map((proposal) => this.getProposal(proposal.id)));
   }
 
   async submitProposal(proposal: ProposalSubmission): Promise<string> {

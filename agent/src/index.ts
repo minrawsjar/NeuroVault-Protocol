@@ -42,6 +42,8 @@ const agentConfig: AgentConfig = {
     .filter(Boolean),
   web3StorageToken: process.env.WEB3_STORAGE_TOKEN,
   enableLit: process.env.ENABLE_LIT === "true",
+  executeApprovedProposals: process.env.EXECUTE_APPROVED_PROPOSALS === "true",
+  proposalMonitorCount: Number(process.env.PROPOSAL_MONITOR_COUNT || "10"),
 };
 
 // Create agent
@@ -71,6 +73,32 @@ app.post("/cycle", async (req, res) => {
 
     const result = await agent.requestCycle(triggerType);
     res.json({ status: "ok", result });
+  } catch (error) {
+    res.status(500).json({ error: String(error) });
+  }
+});
+
+app.get("/proposals", async (req, res) => {
+  try {
+    const count = Number(req.query?.count || "10");
+    const proposals = await agent.getRecentProposalDetails(Number.isFinite(count) ? count : 10);
+    res.json({
+      proposals,
+      updatedAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    res.status(500).json({ error: String(error) });
+  }
+});
+
+app.post("/proposals/finalize-ready", async (_req, res) => {
+  try {
+    const results = await agent.monitorApprovedProposals();
+    res.json({
+      status: "ok",
+      results,
+      updatedAt: new Date().toISOString(),
+    });
   } catch (error) {
     res.status(500).json({ error: String(error) });
   }

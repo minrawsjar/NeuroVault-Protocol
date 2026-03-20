@@ -1,5 +1,5 @@
 import { GeminiAgent, ReasoningResult } from "./gemini.js";
-import { VaultContract, TreasuryState, Goal, ProposalSummary } from "./contract.js";
+import { VaultContract, TreasuryState, Goal, ProposalSummary, ProposalDetails } from "./contract.js";
 import { commitReasoningBlob } from "./ipfs.js";
 import { LitEncryption, EncryptedSecret } from "./lit.js";
 import { ethers } from "ethers";
@@ -19,6 +19,8 @@ export interface AgentConfig {
   approvedTargets?: string[];
   web3StorageToken?: string;
   enableLit?: boolean;
+  executeApprovedProposals?: boolean;
+  proposalMonitorCount?: number;
 }
 
 export type TriggerType =
@@ -55,6 +57,13 @@ export class NeuroVaultAgent {
   private config: AgentConfig;
   private litEncryption?: LitEncryption;
   private encryptedApiKey?: EncryptedSecret;
+  private lastFinalizeResults: Array<{
+    proposalId: number;
+    txHash?: string;
+    outcome: "finalized" | "skipped" | "error";
+    reason: string;
+    timestamp: string;
+  }> = [];
 
   constructor(config: AgentConfig) {
     this.config = config;
@@ -105,11 +114,13 @@ export class NeuroVaultAgent {
 
     // Run immediate first cycle
     await this.requestCycle("startup");
+    await this.monitorApprovedProposals();
 
     // Schedule regular cycles
     cron.schedule(this.config.cycleInterval || "*/30 * * * *", async () => {
       if (!this.isServiceRunning) return;
       await this.requestCycle("cron");
+      await this.monitorApprovedProposals();
     });
 
     console.log("✅ Agent running");
@@ -394,6 +405,13 @@ export class NeuroVaultAgent {
     cycleCount: number;
     lastCycleCompletedAt: number;
     lastCycleResult?: CycleResult;
+    lastFinalizeResults: Array<{
+      proposalId: number;
+      txHash?: string;
+      outcome: "finalized" | "skipped" | "error";
+      reason: string;
+      timestamp: string;
+    }>;
   } {
     return {
       isRunning: this.isServiceRunning,
@@ -401,6 +419,74 @@ export class NeuroVaultAgent {
       cycleCount: this.cycleCount,
       lastCycleCompletedAt: this.lastCycleCompletedAt,
       lastCycleResult: this.lastCycleResult,
+      lastFinalizeResults: this.lastFinalizeResults,
     };
+  }
+
+  async getRecentProposalDetails(count: number): Promise<ProposalDetails[]> {
+    return this.contract.getRecentProposalDetails(count);
+  }
+
+  async monitorApprovedProposals(): Promise<Array<{
+    proposalId: number;
+    txHash?: string;
+    outcome: "finalized" | "skipped" | "error";
+    reason: string;
+    timestamp: string;
+  }>> {
+    const results: Array<{
+      proposalId: number;
+      txHash?: string;
+      outcome: "finalized" | "skipped" | "error";
+      reason: string;
+      timestamp: string;
+    }> = [];
+
+    if (!this.config.executeApprovedProposals || !this.config.agentPrivateKey) {
+      return results;
+    }
+
+    const proposals = await this.contract.getRecentProposalDetails(this.config.proposalMonitorCount ?? 10);
+    const now = Math.floor(Date.now() / 1000);
+
+    for (const proposal of proposals) {
+      if (proposal.status !== 0) continue;
+      if (proposal.votingDeadline > now) continue;
+
+      try {
+        const quorumMet = await this.contract.hasReachedQuorum(proposal.id);
+        if (!quorumMet) {
+          results.push({
+            proposalId: proposal.id,
+            outcome: "skipped",
+            reason: "Voting period ended but quorum not met",
+            timestamp: new Date().toISOString(),
+          });
+          continue;
+        }
+
+        const txHash = await this.contract.finalizeProposal(proposal.id);
+        results.push({
+          proposalId: proposal.id,
+          txHash,
+          outcome: "finalized",
+          reason: "Proposal finalized successfully",
+          timestamp: new Date().toISOString(),
+        });
+      } catch (error) {
+        results.push({
+          proposalId: proposal.id,
+          outcome: "error",
+          reason: error instanceof Error ? error.message : String(error),
+          timestamp: new Date().toISOString(),
+        });
+      }
+    }
+
+    if (results.length > 0) {
+      this.lastFinalizeResults = [...results, ...this.lastFinalizeResults].slice(0, 20);
+    }
+
+    return results;
   }
 }

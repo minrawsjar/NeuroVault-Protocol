@@ -7,6 +7,9 @@ import {
 } from "@/lib/ens";
 import { getEnsRecordsOnchain, registerEnsNameOnchain } from "@/lib/protocol-data";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export async function GET(req: NextRequest) {
   const allowLocalFallback = (process.env.ALLOW_LOCAL_FALLBACK || "false").toLowerCase() === "true";
   const { searchParams } = new URL(req.url);

@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { deriveCrossChainQueue } from "@/lib/protocol-data";
+import { getServerAgentApiUrl, getServerCrosschainApiUrl } from "@/lib/server-env";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export async function GET() {
   const allowLocalFallback = (process.env.ALLOW_LOCAL_FALLBACK || "false").toLowerCase() === "true";
-  const crosschainApiUrl = (process.env.CROSSCHAIN_API_URL || "").trim();
+  const crosschainApiUrl = getServerCrosschainApiUrl();
 
   if (crosschainApiUrl) {
     try {
@@ -73,7 +77,8 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const allowLocalFallback = (process.env.ALLOW_LOCAL_FALLBACK || "false").toLowerCase() === "true";
-  const crosschainApiUrl = (process.env.CROSSCHAIN_API_URL || "").trim();
+  const crosschainApiUrl = getServerCrosschainApiUrl();
+  const agentApiUrl = getServerAgentApiUrl();
 
   if (crosschainApiUrl) {
     const body = await req.json().catch(() => ({}));
@@ -106,8 +111,40 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  const body = await req.json().catch(() => ({}));
+  const action = String(body?.action ?? "").trim().toLowerCase();
+
+  if (agentApiUrl && action === "finalize_ready") {
+    try {
+      const res = await fetch(`${agentApiUrl.replace(/\/$/, "")}/proposals/finalize-ready`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        return NextResponse.json(
+          { error: "Agent finalization request failed", details: data },
+          { status: 502 }
+        );
+      }
+
+      return NextResponse.json({
+        ...data,
+        source: "agent_runtime",
+      });
+    } catch (err) {
+      if (!allowLocalFallback) {
+        return NextResponse.json(
+          { error: "Agent runtime unavailable", details: String(err) },
+          { status: 503 }
+        );
+      }
+    }
+  }
+
   return NextResponse.json({
     error: "Crosschain dispatch is not wired for direct writes in this API",
-    details: "Configure CROSSCHAIN_API_URL to submit real bridge requests; on-chain fallback is read-only.",
+    details: "Use CROSSCHAIN_API_URL for direct bridge writes or POST { action: \"finalize_ready\" } when AGENT_API_URL is configured.",
   }, { status: allowLocalFallback ? 501 : 503 });
 }

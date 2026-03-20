@@ -1,10 +1,10 @@
 import { createPublicClient, createWalletClient, formatUnits, http } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { CONTRACTS, ENS_ABI, NEUROVAULT_ABI } from "@/lib/contracts";
+import { getServerAgentApiUrl } from "@/lib/server-env";
 
 const DEFAULT_RPC_URL = "https://eth-rpc-testnet.polkadot.io/";
 const RPC_URL = (process.env.VAULT_RPC_URL || process.env.RPC_URL || DEFAULT_RPC_URL).trim();
-const AGENT_API_URL = (process.env.AGENT_API_URL || "").trim();
 const publicClient = createPublicClient({
   transport: http(RPC_URL),
 });
@@ -196,9 +196,10 @@ export async function getEnsRecordsOnchain(): Promise<OnchainEnsRecord[]> {
 }
 
 export async function getAgentRuntimeStatus(): Promise<AgentRuntimeStatus | null> {
-  if (!AGENT_API_URL) return null;
+  const agentApiUrl = getServerAgentApiUrl();
+  if (!agentApiUrl) return null;
 
-  const response = await fetch(`${AGENT_API_URL.replace(/\/$/, "")}/status`, {
+  const response = await fetch(`${agentApiUrl.replace(/\/$/, "")}/status`, {
     headers: { "Content-Type": "application/json" },
     cache: "no-store",
   });

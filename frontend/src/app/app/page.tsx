@@ -318,6 +318,11 @@ export default function AppPage() {
       const data = await res.json();
       const reply = data?.reply || "Bot failed to respond";
       const provider = data?.provider ? ` [${data.provider}]` : "";
+      const providerDetails = data?.reason
+        ? `:${String(data.reason)}`
+        : data?.model
+          ? `:${String(data.model)}`
+          : "";
 
       if (data?.action === "ens_register") {
         try {
@@ -344,7 +349,7 @@ export default function AppPage() {
 
       setConsoleLines((prev) => {
         const withoutThinking = prev.filter((line) => line !== "...thinking");
-        const lines = [...withoutThinking.slice(-6), `${reply}${provider}`];
+        const lines = [...withoutThinking.slice(-6), `${reply}${provider}${providerDetails}`];
         if (data?.lit?.ciphertext) {
           lines.push(`lit sealed: ${String(data.lit.dataToEncryptHash).slice(0, 18)}...`);
         }
