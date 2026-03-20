@@ -76,6 +76,25 @@ export class NeuroVaultAgent {
     );
   }
 
+  private normalizeExecutableAmount(token: string, amountRaw: string): {
+    amount: number;
+    wasClamped: boolean;
+    maxAllowed: number;
+  } {
+    const parsed = Number(amountRaw);
+    const maxAllowed = 2000;
+
+    if (!Number.isFinite(parsed) || parsed < 0) {
+      return { amount: 0, wasClamped: false, maxAllowed };
+    }
+
+    if (parsed > maxAllowed) {
+      return { amount: maxAllowed, wasClamped: true, maxAllowed };
+    }
+
+    return { amount: parsed, wasClamped: false, maxAllowed };
+  }
+
   async start(): Promise<void> {
     if (this.isServiceRunning) {
       console.log("Agent already running");
@@ -237,6 +256,14 @@ export class NeuroVaultAgent {
       }
 
       // Stage 5 — IPFS commitment
+      const normalizedTokenForExecution = (reasoning.token || "PAS").toUpperCase();
+      const normalizedAmount = this.normalizeExecutableAmount(normalizedTokenForExecution, reasoning.amount);
+      if (normalizedAmount.wasClamped) {
+        console.log(
+          `⚠️  Capping proposed ${normalizedTokenForExecution} amount from ${reasoning.amount} to ${normalizedAmount.amount} to match contract max spend`
+        );
+      }
+
       const reasoningBlob = {
         cycleNumber,
         timestamp,
@@ -253,7 +280,7 @@ export class NeuroVaultAgent {
         parsedOutput: {
           action: reasoning.action,
           description: reasoning.description,
-          amount: reasoning.amount,
+          amount: String(normalizedAmount.amount),
           token: reasoning.token,
           targetToken: reasoning.targetToken,
           confidence: reasoning.confidence,
@@ -276,7 +303,7 @@ export class NeuroVaultAgent {
         };
 
         const tokens = await this.contract.getVaultTokens();
-        const normalizedToken = (reasoning.token || "PAS").toUpperCase();
+        const normalizedToken = normalizedTokenForExecution;
         const tokenAddress = normalizedToken === "USDC" ? tokens.usdcToken : tokens.dotToken;
         const normalizedTarget = String(reasoning.targetToken || "").trim();
         const targetTokenAddress =
@@ -288,13 +315,12 @@ export class NeuroVaultAgent {
                 ? normalizedTarget
                 : "0x0000000000000000000000000000000000000000";
         const amountMultiplier = normalizedToken === "USDC" ? 1e6 : 1e18;
-        const amountParsed = Number(reasoning.amount);
 
         const txHash = await this.contract.submitProposal({
           ipfsHash,
           actionType: actionTypes[reasoning.action] ?? 4,
           description: reasoning.description,
-          amount: BigInt(Math.max(0, Math.floor((Number.isFinite(amountParsed) ? amountParsed : 0) * amountMultiplier))),
+          amount: BigInt(Math.max(0, Math.floor(normalizedAmount.amount * amountMultiplier))),
           token: tokenAddress,
           targetToken: targetTokenAddress,
           confidence: Math.round(reasoning.confidence * 100),

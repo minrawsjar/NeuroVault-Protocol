@@ -50,6 +50,7 @@ export default function AppVotePage() {
   const [voteSuccess, setVoteSuccess] = useState<string | null>(null);
   const [votes, setVotes] = useState<Record<number, "for" | "against" | null>>({});
   const [votingInProgress, setVotingInProgress] = useState<number | null>(null);
+  const currentTime = useSyncExternalStore(subscribeToClock, () => Date.now(), () => 0);
 
   // Load contract data
   useEffect(() => {
@@ -126,7 +127,8 @@ export default function AppVotePage() {
     }
   };
 
-  const activeProposals = proposals.filter(p => p.status === 0).length;
+  const activeProposals = proposals.filter((p) => p.status === 0 && p.votingDeadline >= currentTime).length;
+  const awaitingFinalization = proposals.filter((p) => p.status === 0 && p.votingDeadline < currentTime).length;
   const totalVotes = proposals.reduce((sum, p) => sum + Number(p.votesFor) + Number(p.votesAgainst), 0);
 
   if (isDataLoading) {
@@ -177,7 +179,7 @@ export default function AppVotePage() {
           <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6">
             <p className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-2">Current Status</p>
             <p className="text-xl font-bold text-white">
-              {activeProposals} active • {proposals.length - activeProposals} closed
+              {activeProposals} open for voting • {awaitingFinalization + (proposals.length - activeProposals - awaitingFinalization)} ended
             </p>
           </div>
 
@@ -277,9 +279,9 @@ function ProposalCard({
   const forPercent = totalVotes > 0 ? (forVotes / totalVotes) * 100 : 0;
   const againstPercent = totalVotes > 0 ? (againstVotes / totalVotes) * 100 : 0;
   const isActive = proposal.status === 0; // Pending
-  const currentTime = useSyncExternalStore(subscribeToClock, () => Date.now(), () => 0);
   const isExpired = proposal.votingDeadline < currentTime;
   const ipfsUrl = toIpfsGatewayUrl(proposal.ipfsHash);
+  const statusLabel = isActive && isExpired ? "Awaiting Finalization" : STATUS_MAP[proposal.status];
 
   // Map action type to tag
   const actionTags = ["Swap", "Stake", "Transfer", "Rebalance", "None"];
@@ -293,13 +295,15 @@ function ProposalCard({
         </span>
         <span
           className={`px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md flex items-center border ${
-            isActive
+            isActive && !isExpired
               ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+              : isActive && isExpired
+                ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
               : "bg-zinc-800 text-zinc-400 border-zinc-700"
           }`}
         >
-          {isActive && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5 animate-pulse" />}
-          {STATUS_MAP[proposal.status]}
+          {isActive && !isExpired ? <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5 animate-pulse" /> : null}
+          {statusLabel}
         </span>
         <span className="text-xs text-zinc-500">
           Confidence: {proposal.confidence}%
