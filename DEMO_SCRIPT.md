@@ -1,201 +1,195 @@
 # NeuroVault Protocol — 5-Minute Demo Script
 
-> **Total runtime:** ~5 minutes  
-> **Format:** Screen recording with voiceover  
+> **Total runtime:** ~5 minutes
+> **Format:** Screen recording with voiceover
 > **Sections:** Problem (45s) → Solution (45s) → Architecture (90s) → Live Demo (120s) → Close (20s)
 
 ---
 
-## 🎬 SECTION 1 — THE PROBLEM (0:00 – 0:45)
+## SECTION 1 — THE PROBLEM (0:00 – 0:45)
 
-**[SCREEN: Blank/title slide or landing page hero]**
+**[SCREEN: Landing page hero or title slide]**
 
-> "DAOs sit on tens of millions of dollars in treasury — and do almost nothing with it.
+> "DAO treasuries are still managed like spreadsheets with multisigs.
 >
-> Here's the typical DAO treasury in 2025: a multisig wallet holding stablecoins and native tokens, slowly being drained by grants, with zero yield being generated. The people running it aren't financial experts. Governance proposals take days. By the time a rebalance vote passes, the market has already moved.
+> Capital sits idle. Rebalancing is slow. Yield opportunities are missed. And by the time governance reacts, market conditions have already changed.
 >
-> There are three core problems:
+> The core problem is that treasury management is manual, fragmented, and too slow for live markets.
 >
-> **One** — treasury management is entirely manual and reactive.  
-> **Two** — cross-chain yield opportunities like Bifrost liquid staking are inaccessible without deep technical integration.  
-> **Three** — governance lacks the intelligence to make fast, informed decisions at the right time.
->
-> The result? Idle capital. Missed yield. Slow governance. And nobody's accountable."
-
-**[SCREEN: Pause 1 second on the problem statement]**
+> NeuroVault is our answer: an AI-assisted treasury protocol where strategy generation, governance, and execution are all connected on-chain."
 
 ---
 
-## 🚀 SECTION 2 — THE SOLUTION (0:45 – 1:30)
+## SECTION 2 — THE SOLUTION (0:45 – 1:30)
 
-**[SCREEN: Switch to landing page — `http://localhost:3000`]**
+**[SCREEN: Stay on landing page and scroll slightly]**
 
-> "NeuroVault is an AI-powered treasury DAO built natively on Polkadot Hub.
+> "NeuroVault combines three layers.
 >
-> It combines three things that have never existed together in one protocol:
+> First, an AI agent monitors treasury state and proposes actions.
 >
-> **An autonomous AI agent** — powered by Gemini — that continuously monitors treasury health, generates rebalance proposals, and executes cross-chain strategies.
+> Second, those actions become on-chain governance proposals that PAS stakers can approve or reject.
 >
-> **On-chain governance** — where every AI decision is a proposal that token stakers vote on before execution. The AI proposes. Humans approve. The contract executes.
+> Third, once approved, the vault contract can execute the action directly, including cross-chain stake dispatch through Hyperbridge.
 >
-> **Bifrost SLPx liquid staking** — the agent can stake PAS (cross-chain as xcDOT) through Hyperbridge and receive vDOT, earning 12–15% APY while keeping the position liquid. All automatically.
->
-> Built on Polkadot Hub with Solidity, Hyperbridge for cross-chain messaging, Bifrost SLPx for liquid staking, and IPFS for decentralized proposal storage."
-
-**[SCREEN: Stay on landing page, scroll slightly to show the 'Capabilities' section]**
+> The result is a treasury that can reason faster, stay transparent, and still remain fully governed by token holders."
 
 ---
 
-## 🏗️ SECTION 3 — ARCHITECTURE (1:30 – 3:00)
+## SECTION 3 — ARCHITECTURE (1:30 – 3:00)
 
-**[SCREEN: Switch to `/app` dashboard — connect wallet if needed]**
+**[SCREEN: Navigate to `/app`]**
 
-> "Let me walk you through the architecture.
+> "Here’s the live dashboard.
 >
-> **The Smart Contract** lives on Polkadot Hub TestNet — that's Paseo. It's the single source of truth. It holds the treasury, manages staker positions, runs governance, and dispatches cross-chain calls through Hyperbridge."
+> The core contract lives on Polkadot Hub EVM on Paseo. It holds treasury assets, tracks stakers, manages proposals, and executes approved actions."
 
-**[SCREEN: Point to Treasury TVL and APY panels at the top]**
+**[SCREEN: Point to treasury metrics]**
 
-> "This TVL and APY is read directly from the on-chain contract — no backend, no database. Pure on-chain state.
+> "These treasury metrics are read from the configured contract and RPC. This is the live vault state the app is using."
 
-**[SCREEN: Scroll down to Bifrost SLPx panel in the sidebar]**
+**[SCREEN: Point to Agent panel]**
 
-> "The Bifrost SLPx panel shows the cross-chain staking integration. When the AI agent detects a yield opportunity, it creates an ISMP message through Hyperbridge that calls `create_order()` on the Bifrost SLPx contract on Moonbeam — depositing xcDOT and receiving vDOT back within 45 to 60 seconds.
->
-> This is PATH B integration — fully cross-chain from Polkadot Hub. The NeuroVault contract never touches Moonbeam directly. Hyperbridge does the bridging."
+> "The external agent runs off-chain. It reads treasury state, produces a recommendation, pins reasoning to IPFS, and submits a proposal on-chain."
 
-**[SCREEN: Scroll down to Hyperbridge/XCM Queue panel]**
+**[SCREEN: Point to Governance / proposal preview]**
 
-> "All cross-chain operations are tracked in the XCM queue — queued, bridging, settled.
+> "Every AI recommendation becomes a governance object. Stakers vote, and the proposal metadata stays visible in the UI."
 
-**[SCREEN: Scroll to Agent Status panel]**
+**[SCREEN: Point to Hyperbridge / cross-chain panel]**
 
-> "The AI agent runs on AWS EC2. It polls the contract state every cycle, calls Gemini for strategy analysis, and if confidence exceeds the threshold, it signs and submits a proposal transaction directly to the contract. No human needed in the loop — unless governance rejects it."
+> "Cross-chain actions are represented through the governance pipeline. The contract has a Hyperbridge dispatch path for stake execution, and the UI shows proposal-derived queue state."
 
-**[SCREEN: Scroll to bottom to show Activity Feed]**
+**[SCREEN: Point to Bifrost card if visible]**
 
-> "The activity feed is wired to real on-chain proposal events — every proposal created, voted on, and executed shows up here."
+> "One important detail: Bifrost is part of the execution architecture, not a standalone live frontend integration here. The contract is wired to encode and dispatch a Bifrost staking call through Hyperbridge when an approved stake proposal is finalized."
 
 ---
 
-## 💻 SECTION 4 — LIVE DEMO (3:00 – 5:00)
+## SECTION 4 — LIVE DEMO (3:00 – 5:00)
 
-### Step 1 — Bot Console (3:00 – 3:30)
+### Step 1 — Bot Console (3:00 – 3:35)
 
-**[SCREEN: Click bot console section on `/app`, make sure it's visible]**
+**[SCREEN: Scroll to bot console on `/app`]**
 
-> "Let me show the treasury bot. This is the AI interface to the protocol."
+> "This is the treasury bot console. It gives a simple operator interface over the protocol."
 
 **[TYPE and CLICK: `treasury status`]**
 
-> "This hits the on-chain contract and returns live treasury state — total value locked, PAS vs USDC allocation, current APY."
+> "This reads the current vault state from the configured contract and RPC: treasury value, PAS versus USDC allocation, APY, and staking participation."
 
-**[SCREEN: Wait for response, read it aloud]**
+**[SCREEN: Wait for response and read it aloud]**
 
-**[TYPE and CLICK: `bifrost status`]**
+**[TYPE and CLICK: `agent status`]**
 
-> "And Bifrost integration — this shows the SLPx protocol is active, vDOT APY around 12–15%, minimum stake of 10 xcDOT, routed through Hyperbridge."
+> "This shows whether the runtime agent is active and whether the on-chain identity and runtime integration are available."
+
+**[SCREEN: Wait for response]**
+
+**[TYPE and CLICK: `crosschain queue`]**
+
+> "This shows the current cross-chain action queue derived from recent proposals and execution state."
 
 **[SCREEN: Wait for response]**
 
 **[TYPE and CLICK: `suggest rebalance plan`]**
 
-> "This one goes to Gemini — asking the AI for a live rebalance recommendation based on the current treasury snapshot."
+> "This is the AI advisory path. The bot sends the current treasury snapshot to Gemini and asks for a live rebalance recommendation."
 
-**[SCREEN: Wait for Gemini response, read it aloud]**
+**[SCREEN: Wait for response and read it aloud]**
 
-### Step 2 — Governance / Vote (3:30 – 4:15)
+### Step 2 — Governance / Vote (3:35 – 4:15)
 
 **[SCREEN: Navigate to `/app/vote`]**
 
-> "Every AI decision becomes a governance proposal here. Stakers vote for or against. Let me show you an active proposal."
+> "Every AI recommendation becomes a governance proposal here. Stakers decide whether that action should execute."
 
-**[SCREEN: Point to a proposal card — show the description, confidence score, IPFS hash]**
+**[SCREEN: Point to an active proposal card]**
 
-> "This proposal was created by the AI agent — the description, action type, confidence score, and the IPFS hash pointing to the full reasoning document are all stored on-chain.
+> "This card shows the proposal description, confidence score, vote totals, and IPFS hash for the reasoning artifact.
 >
-> The AI agent creates proposals with a standard 1-hour voting window. Anyone can finalize proposals when the deadline passes, and if approved, the contract executes the strategy autonomously."
+> The metadata is on-chain. The reasoning document itself is referenced through IPFS."
 
-**[SCREEN: Click 'Vote For' on an active proposal if wallet is connected]**
+> "Each proposal has a one-hour voting window. After the deadline, anyone can finalize it. If quorum is met, the vault executes the action."
 
-> "I'll vote for this one — watch the transaction go through MetaMask on Paseo testnet."
+**[SCREEN: Click 'Vote For' if wallet is connected]**
 
-**[SCREEN: Wait for transaction confirmation]**
+> "I’ll cast a vote on Paseo testnet so you can see the governance flow end to end."
+
+**[SCREEN: Wait for confirmation]**
 
 ### Step 3 — Staking (4:15 – 4:45)
 
-**[SCREEN: Navigate to `/app/stake`, select 'Deposit' tab]**
+**[SCREEN: Navigate to `/app/stake`]**
 
-> "Users stake PAS tokens to earn yield and gain voting power. More stake means more say over the AI agent's decisions.
+> "Users stake PAS to earn yield and gain voting power. More stake means more influence over treasury decisions."
+
+**[SCREEN: Enter amount and click Deposit]**
+
+> "If the wallet needs token allowance first, the app asks for approval. Then it submits the staking transaction to the vault contract."
+
+**[SCREEN: Show confirmation or success state]**
+
+### Step 4 — Hyperbridge / Bifrost Explanation (4:45 – 5:00)
+
+**[SCREEN: Switch to proposal page or contract snippet in editor/terminal]**
+
+> "Here’s where Bifrost actually fits.
 >
-> Let me deposit — I'll select PAS, enter an amount, and submit."
-
-**[SCREEN: Enter amount, click Deposit, show MetaMask popup]**
-
-> "The contract first approves the token allowance, then calls `stake()`. Both confirmed on-chain."
-
-**[SCREEN: Show success banner after confirmation]**
-
-### Step 4 — Bifrost SLPx Test Evidence (4:45 – 5:00)
-
-**[SCREEN: Switch to terminal / show test output from earlier]**
-
-> "Finally — proof the Bifrost integration is real. We verified the Bifrost SLPx interface against Moonbeam mainnet.
+> The frontend is not calling Bifrost directly. Instead, an approved stake proposal is finalized on the vault contract, and the contract dispatches a cross-chain message through Hyperbridge.
 >
-> The SLPx contract confirmed: xcDOT currency ID `0x0800`, minimum stake 10 planck, GLMR minimum 5 tokens. All currency IDs and minimums match the Bifrost documentation exactly.
->
-> The interface is verified. The architecture is live. And the AI is running."
+> That dispatch is the functional integration point. Bifrost is the configured staking destination in the execution path."
+
+**[OPTIONAL SCREEN: Show `_executeStake()` in contract]**
+
+> "So the live architecture is: AI proposes, governance approves, and the contract is wired to dispatch the stake action cross-chain."
 
 ---
 
-## 🏁 CLOSE (5:00 – 5:20)
+## CLOSE (5:00 – 5:20)
 
-**[SCREEN: Back to landing page hero]**
+**[SCREEN: Back to landing page hero or dashboard overview]**
 
-> "NeuroVault is the first AI-native treasury DAO on Polkadot Hub.
+> "NeuroVault brings AI-assisted treasury management on-chain without removing governance control.
 >
-> Autonomous agent. On-chain governance. Cross-chain liquid staking via Bifrost.
+> The agent proposes. PAS stakers govern. The contract executes.
 >
-> The AI proposes. Humans govern. The chain executes.
->
-> Built on Polkadot Hub • Hyperbridge • Bifrost SLPx • Gemini AI • IPFS"
-
-**[SCREEN: Fade to black or repo URL: github.com/minrawsjar/NeuroVault-Protocol]**
+> Built on Polkadot Hub, with IPFS-backed proposal reasoning and a Hyperbridge-based cross-chain execution path."
 
 ---
 
-## 📋 PRE-RECORDING CHECKLIST
+## PRE-RECORDING CHECKLIST
 
-Before hitting record, verify:
-
-- [ ] MetaMask connected to **Paseo testnet** (Chain ID: `420420417`)
-- [ ] Wallet has PAS test tokens (get from faucet if needed)
-- [ ] Frontend running at `http://localhost:3000`
-- [ ] `/app` dashboard loads — treasury TVL shows on-chain data (not fallback mock)
-- [ ] Bot console responds — run `treasury status` once manually to confirm Gemini works
-- [ ] At least 1 active proposal visible on `/app/vote`
-- [ ] Bifrost SLPx panel visible in sidebar
-- [ ] Browser zoom set to ~90% so all panels are visible without scrolling
-- [ ] Terminal open in background showing test output (for the Bifrost proof section)
+- [ ] MetaMask connected to **Paseo testnet**
+- [ ] Wallet has PAS test tokens
+- [ ] Frontend running and loading `/app`
+- [ ] Treasury metrics load successfully from the configured RPC/contract
+- [ ] Bot console responds to `treasury status`
+- [ ] Verify `suggest rebalance plan` returns a Gemini response before recording
+- [ ] At least 1 recent or active proposal visible on `/app/vote`
+- [ ] Wallet can sign a vote transaction on Paseo
+- [ ] Wallet can sign a staking transaction on `/app/stake`
+- [ ] Optional: editor or terminal ready to show the contract execution path
 
 ---
 
-## ⚡ KEY TALKING POINTS (memorise these)
+## KEY TALKING POINTS
 
-| Claim | Evidence |
+| Claim | Accurate framing |
 |---|---|
-| AI agent auto-proposes | Live on `/app/vote` — proposals with `agent: 0xc5b7...` as proposer |
-| On-chain treasury state | TVL/APY read directly from `0x195FAc...` on Paseo |
-| Bifrost SLPx live on Moonbeam | Test script confirmed `currencyId=0x0800` at block height |
-| Cross-chain via Hyperbridge | Dispatcher at `0xbb26e04a...` wired in `IBifrost.sol` |
-| IPFS proposal storage | Every proposal has CID hash visible on vote page |
-| Governance = check on AI | Humans reject → AI cannot execute |
+| AI agent creates proposals | The runtime agent generates recommendations and submits proposal transactions on-chain |
+| Treasury is live | The dashboard reads treasury state from the configured contract and RPC |
+| Governance protects the treasury | PAS stakers approve or reject AI-generated actions |
+| IPFS is used | Proposal reasoning is referenced by IPFS hash |
+| Hyperbridge is functional | Approved stake proposals can dispatch through Hyperbridge in the contract execution path |
+| Bifrost is integrated | Bifrost is the configured staking destination in the cross-chain execution architecture, not a standalone live frontend integration |
 
 ---
 
-## 🎙️ FALLBACK ONE-LINERS (if something breaks during recording)
+## FALLBACK ONE-LINERS
 
-- If contract reads fail: *"Treasury data is loading from Paseo RPC — the on-chain state is being fetched in real-time."*
-- If Gemini is slow: *"The AI is reasoning over the current treasury snapshot — this is a live call to Gemini."*
-- If no active proposals: *"Proposals are created autonomously by the agent each cycle. Let me run the governance queue command to show recent history."* → type `governance queue` in bot console
-- If MetaMask rejects: *"This would require PAS testnet tokens — the contract interaction is fully wired, the flow is identical on mainnet."*
+- If Gemini fails: *"The Gemini advisory path is wired, but this deployment needs the correct API key available at runtime."*
+- If there is no active proposal: *"The proposal list reflects recent on-chain governance activity; I’ll use that to show how the execution pipeline works."*
+- If voting fails: *"The governance interaction is wired, but this wallet needs PAS testnet funds or allowance to complete the transaction."*
+- If staking fails: *"The staking flow is connected to the vault contract, but this wallet needs the required token balance and allowance."*
+- If asked whether Bifrost is directly visible in the UI: *"Not as a direct live Bifrost panel. Bifrost appears in the contract execution path behind Hyperbridge."*

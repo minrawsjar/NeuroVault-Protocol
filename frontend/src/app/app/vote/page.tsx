@@ -17,6 +17,14 @@ import { useNeuroVaultContract, Proposal, StakerInfo } from "@/hooks/useNeuroVau
 // Status mapping from contract (0=Pending, 1=Approved, 2=Rejected, 3=Executed, 4=Expired)
 const STATUS_MAP = ["Pending", "Approved", "Rejected", "Executed", "Expired"];
 
+function toIpfsGatewayUrl(ipfsHash: string) {
+  const trimmed = ipfsHash.trim();
+  if (!trimmed) return null;
+  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) return trimmed;
+  const cid = trimmed.replace(/^ipfs:\/\//, "").replace(/^\/+/, "");
+  return `https://gateway.pinata.cloud/ipfs/${cid}`;
+}
+
 function subscribeToClock(onStoreChange: () => void) {
   const intervalId = window.setInterval(onStoreChange, 60_000);
   return () => window.clearInterval(intervalId);
@@ -271,6 +279,7 @@ function ProposalCard({
   const isActive = proposal.status === 0; // Pending
   const currentTime = useSyncExternalStore(subscribeToClock, () => Date.now(), () => 0);
   const isExpired = proposal.votingDeadline < currentTime;
+  const ipfsUrl = toIpfsGatewayUrl(proposal.ipfsHash);
 
   // Map action type to tag
   const actionTags = ["Swap", "Stake", "Transfer", "Rebalance", "None"];
@@ -303,9 +312,23 @@ function ProposalCard({
       <p className="text-sm text-zinc-400 mb-2">
         Amount: {proposal.amount} • Token: {proposal.token.slice(0, 6)}...{proposal.token.slice(-4)}
       </p>
-      <p className="text-xs text-zinc-500 mb-6">
-        IPFS: {proposal.ipfsHash.slice(0, 20)}... • Proposer: {proposal.proposer.slice(0, 6)}...{proposal.proposer.slice(-4)}
-      </p>
+      <div className="text-xs text-zinc-500 mb-6 flex flex-wrap items-center gap-x-2 gap-y-1">
+        <span>IPFS:</span>
+        {ipfsUrl ? (
+          <a
+            href={ipfsUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="text-blue-400 hover:text-blue-300 underline underline-offset-2"
+          >
+            {proposal.ipfsHash.slice(0, 20)}...
+          </a>
+        ) : (
+          <span>{proposal.ipfsHash.slice(0, 20)}...</span>
+        )}
+        <span>•</span>
+        <span>Proposer: {proposal.proposer.slice(0, 6)}...{proposal.proposer.slice(-4)}</span>
+      </div>
 
       <div className="mb-6">
         <div className="flex justify-between text-xs text-zinc-500 mb-2 font-medium">
