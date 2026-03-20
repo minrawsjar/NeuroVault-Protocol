@@ -109,7 +109,7 @@ export default function AdminPage() {
         </div>
       )}
 
-      {/* Add DOT Form */}
+      {/* Add PAS Form */}
       <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-6 mb-6">
         <div className="flex items-center gap-3 mb-6">
           <div className="w-12 h-12 rounded-full bg-blue-500/20 flex items-center justify-center">

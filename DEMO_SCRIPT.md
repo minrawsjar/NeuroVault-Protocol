@@ -114,7 +114,7 @@
 
 > "This proposal was created by the AI agent — the description, action type, confidence score, and the IPFS hash pointing to the full reasoning document are all stored on-chain.
 >
-> The AI agent sets custom deadlines based on urgency — emergency rebalances get 15 minutes, regular strategies get 3-6 hours. And auto-finalization is enabled by default, so when the deadline passes, the contract automatically finalizes and executes approved proposals without any human intervention."
+> The AI agent creates proposals with a standard 1-hour voting window. Anyone can finalize proposals when the deadline passes, and if approved, the contract executes the strategy autonomously."
 
 **[SCREEN: Click 'Vote For' on an active proposal if wallet is connected]**
 
@@ -140,7 +140,7 @@
 
 **[SCREEN: Switch to terminal / show test output from earlier]**
 
-> "Finally — proof the Bifrost integration is real. We ran a live test against Moonbeam mainnet.
+> "Finally — proof the Bifrost integration is real. We verified the Bifrost SLPx interface against Moonbeam mainnet.
 >
 > The SLPx contract confirmed: xcDOT currency ID `0x0800`, minimum stake 10 planck, GLMR minimum 5 tokens. All currency IDs and minimums match the Bifrost documentation exactly.
 >

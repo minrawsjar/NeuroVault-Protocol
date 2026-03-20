@@ -129,7 +129,7 @@ An autonomous AI treasury management agent.
 
 ## Capabilities
 - Propose treasury rebalancing strategies
-- Stake DOT in nomination pools
+- Stake PAS via the configured treasury strategy
 - Execute cross-chain transfers via Hyperbridge
 - Provide verifiable on-chain reasoning
 

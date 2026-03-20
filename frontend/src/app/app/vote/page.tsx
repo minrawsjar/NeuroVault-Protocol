@@ -202,7 +202,7 @@ export default function AppVotePage() {
                 {stakerInfo ? `${stakerInfo.votingPower.toFixed(2)}%` : "0%"}
               </span>
               <p className="text-sm text-zinc-400 mt-1">
-                {stakerInfo ? `${stakerInfo.staked} DOT staked` : "Connect wallet to see"}
+                {stakerInfo ? `${stakerInfo.staked} PAS staked` : "Connect wallet to see"}
               </p>
             </div>
           </div>

@@ -92,7 +92,7 @@ export default function AppTreasuryPage() {
     },
     {
       title: "Treasury Rebalanced",
-      desc: "DOT/USDC Ratio Adjusted",
+      desc: "PAS/USDC Ratio Adjusted",
       val: "Tx: 0x1c...9b4",
       type: "neutral",
       time: "Mar 16, 2026",
@@ -181,8 +181,8 @@ export default function AppTreasuryPage() {
               <div>
                 <div className="flex justify-between items-end mb-2">
                   <div>
-                    <span className="text-white font-medium block">Polkadot (DOT)</span>
-                    <span className="text-xs text-zinc-500">{dotAmount.toFixed(0)} DOT • ${dotValue.toLocaleString()}</span>
+                    <span className="text-white font-medium block">Paseo Token (PAS)</span>
+                    <span className="text-xs text-zinc-500">{dotAmount.toFixed(0)} PAS • ${dotValue.toLocaleString()}</span>
                   </div>
                   <span className="text-blue-400 font-medium text-lg">{dotPct}%</span>
                 </div>

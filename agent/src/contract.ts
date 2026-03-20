@@ -193,8 +193,13 @@ export class VaultContract {
     const contract = new ethers.Contract(this.contractAddress, PROPOSE_ABI, this.ethersSigner);
 
     const feeData = await this.ethersProvider.getFeeData();
-    // Paseo requires higher gas prices (base fee can be 1000+ gwei)
-    const gasPrice = feeData.gasPrice || ethers.parseUnits("2000", "gwei");
+    const minPriorityFeePerGas = ethers.parseUnits("2", "gwei");
+    const maxPriorityFeePerGas =
+      feeData.maxPriorityFeePerGas && feeData.maxPriorityFeePerGas > minPriorityFeePerGas
+        ? feeData.maxPriorityFeePerGas
+        : minPriorityFeePerGas;
+    const baseMaxFeePerGas = feeData.maxFeePerGas || feeData.gasPrice || ethers.parseUnits("2000", "gwei");
+    const maxFeePerGas = baseMaxFeePerGas + maxPriorityFeePerGas;
 
     const tx = await contract.propose(
       proposal.ipfsHash,
@@ -204,7 +209,11 @@ export class VaultContract {
       proposal.token,
       proposal.targetToken,
       BigInt(proposal.confidence),
-      { gasPrice, gasLimit: 500000 }
+      {
+        maxFeePerGas,
+        maxPriorityFeePerGas,
+        gasLimit: 500000,
+      }
     );
 
     console.log(`⛓️  Proposal TX hash: ${tx.hash}`);

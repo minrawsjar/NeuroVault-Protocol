@@ -57,6 +57,12 @@ export interface StakerInfo {
   votingPower: number;
 }
 
+export interface Goal {
+  id: number;
+  text: string;
+  status: number;
+}
+
 // Contract addresses
 const ADDRESSES = CONTRACTS.paseo;
 
@@ -273,6 +279,20 @@ export function useNeuroVaultContract() {
     }
   }, []);
 
+  const getActiveGoals = useCallback(async (): Promise<Goal[]> => {
+    try {
+      const goals = await readVault.getActiveGoals();
+      return goals.map((goal: { id: bigint; text: string; status: number }) => ({
+        id: Number(goal.id),
+        text: goal.text,
+        status: Number(goal.status),
+      }));
+    } catch (err) {
+      console.error("Error fetching active goals:", err);
+      return [];
+    }
+  }, []);
+
   // Stake PAS tokens (write — needs signer)
   const stake = useCallback(async (amount: string): Promise<boolean> => {
     if (!writeContract || !writePasToken || !provider) return false;
@@ -447,6 +467,7 @@ export function useNeuroVaultContract() {
     getProposal,
     getRecentProposals,
     getStakerInfo,
+    getActiveGoals,
     stake,
     depositUsdc,
     unstake,

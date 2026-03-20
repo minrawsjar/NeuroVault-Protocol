@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCrossChainQueue, getCrossChainSummary } from "@/lib/crosschain";
+import { deriveCrossChainQueue } from "@/lib/protocol-data";
 
 export async function GET() {
   const allowLocalFallback = (process.env.ALLOW_LOCAL_FALLBACK || "false").toLowerCase() === "true";
@@ -32,19 +32,40 @@ export async function GET() {
     }
   }
 
-  if (!allowLocalFallback) {
-    return NextResponse.json(
-      { error: "Crosschain integration not configured", details: "Set CROSSCHAIN_API_URL or enable ALLOW_LOCAL_FALLBACK=true" },
-      { status: 503 }
-    );
+  try {
+    const queue = await deriveCrossChainQueue(12);
+    const summary = {
+      total: queue.length,
+      queued: queue.filter((item) => item.status === "queued").length,
+      bridging: queue.filter((item) => item.status === "bridging").length,
+      settled: queue.filter((item) => item.status === "settled").length,
+      bridge: "Hyperbridge",
+    };
+
+    return NextResponse.json({
+      queue,
+      summary,
+      source: "onchain",
+      updatedAt: new Date().toISOString(),
+    });
+  } catch (err) {
+    if (!allowLocalFallback) {
+      return NextResponse.json(
+        { error: "Crosschain integration not configured", details: String(err) },
+        { status: 503 }
+      );
+    }
   }
 
-  const queue = getCrossChainQueue();
-  const summary = getCrossChainSummary();
-
   return NextResponse.json({
-    queue,
-    summary,
+    queue: [],
+    summary: {
+      total: 0,
+      queued: 0,
+      bridging: 0,
+      settled: 0,
+      bridge: "Hyperbridge",
+    },
     source: "fallback",
     updatedAt: new Date().toISOString(),
   });
@@ -85,29 +106,8 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  if (!allowLocalFallback) {
-    return NextResponse.json(
-      { error: "Crosschain integration not configured", details: "Set CROSSCHAIN_API_URL or enable ALLOW_LOCAL_FALLBACK=true" },
-      { status: 503 }
-    );
-  }
-
-  const body = await req.json().catch(() => ({}));
-  const amount = String(body?.amount ?? "0");
-  const token = String(body?.token ?? "USDC").toUpperCase();
-  const to = String(body?.to ?? "Moonbeam");
-
   return NextResponse.json({
-    status: "queued",
-    transfer: {
-      id: `xcm-sim-${Date.now()}`,
-      token: token === "DOT" ? "DOT" : "USDC",
-      amount,
-      from: "Polkadot Hub",
-      to,
-      bridge: "Hyperbridge",
-      eta: "~3m",
-    },
-    source: "fallback",
-  });
+    error: "Crosschain dispatch is not wired for direct writes in this API",
+    details: "Configure CROSSCHAIN_API_URL to submit real bridge requests; on-chain fallback is read-only.",
+  }, { status: allowLocalFallback ? 501 : 503 });
 }

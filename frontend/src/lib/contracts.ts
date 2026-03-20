@@ -327,7 +327,7 @@ export const SUPPORTED_CHAINS = {
   paseo: {
     id: 420420417,
     name: "Paseo Testnet",
-    nativeCurrency: { name: "DOT", symbol: "DOT", decimals: 18 },
+    nativeCurrency: { name: "PAS", symbol: "PAS", decimals: 18 },
     rpcUrls: {
       default: { http: ["https://paseo-hub-rpc.polkadot.io"] },
     },

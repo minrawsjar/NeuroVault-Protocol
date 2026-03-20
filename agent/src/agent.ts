@@ -179,7 +179,7 @@ export class NeuroVaultAgent {
       });
       const yieldData = await this.fetchYieldContext();
 
-      console.log(`💰 Treasury: $${treasuryState.totalValue} | DOT: ${treasuryState.dotBalance} | USDC: ${treasuryState.usdcBalance}`);
+      console.log(`💰 Treasury: $${treasuryState.totalValue} | PAS: ${treasuryState.dotBalance} | USDC: ${treasuryState.usdcBalance}`);
       console.log(`🎯 Goals: ${goals.filter(g => g.status === 1).length} active`);
 
       // Stage 3 — LLM reasoning call
@@ -265,13 +265,13 @@ export class NeuroVaultAgent {
         };
 
         const tokens = await this.contract.getVaultTokens();
-        const normalizedToken = (reasoning.token || "DOT").toUpperCase();
+        const normalizedToken = (reasoning.token || "PAS").toUpperCase();
         const tokenAddress = normalizedToken === "USDC" ? tokens.usdcToken : tokens.dotToken;
         const normalizedTarget = String(reasoning.targetToken || "").trim();
         const targetTokenAddress =
           normalizedTarget.toUpperCase() === "USDC"
             ? tokens.usdcToken
-            : normalizedTarget.toUpperCase() === "DOT"
+            : ["DOT", "PAS"].includes(normalizedTarget.toUpperCase())
               ? tokens.dotToken
               : /^0x[a-fA-F0-9]{40}$/.test(normalizedTarget)
                 ? normalizedTarget

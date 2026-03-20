@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { encryptWithLit } from "@/lib/lit-protocol";
 import { getVaultSnapshot, type VaultSnapshot } from "@/lib/vault";
-import { getExternalAgentSummary } from "@/lib/agents";
-import { getCrossChainSummary } from "@/lib/crosschain";
-import { registerEnsName, resolveEnsNameOnchain, type EnsChain } from "@/lib/ens";
+import { resolveEnsNameOnchain, type EnsChain } from "@/lib/ens";
+import { deriveCrossChainQueue, getAgentRuntimeStatus, getEnsRecordsOnchain, registerEnsNameOnchain } from "@/lib/protocol-data";
 
 const GEMINI_API_KEY = (process.env.GEMINI_API_KEY || "").trim();
 const LIT_AUTHORIZED_ADDRESSES = (process.env.LIT_AUTHORIZED_ADDRESSES || "")
@@ -48,10 +47,35 @@ async function resolveGeminiModel(apiKey: string): Promise<string | null> {
   return cachedModelName;
 }
 
-function fallbackReply(command: string, snapshot: VaultSnapshot) {
+async function buildRuntimeSummaries() {
+  const [runtime, ensRecords, crosschainQueue] = await Promise.all([
+    getAgentRuntimeStatus().catch(() => null),
+    getEnsRecordsOnchain().catch(() => []),
+    deriveCrossChainQueue().catch(() => []),
+  ]);
+
+  const agentSummary = {
+    total: Math.max(ensRecords.length, runtime ? 1 : 0),
+    active: runtime?.isRunning && !runtime.cycleInProgress ? 1 : 0,
+    degraded: runtime?.isRunning && runtime.cycleInProgress ? 1 : 0,
+    offline: runtime && !runtime.isRunning ? 1 : 0,
+    primaryEns: ensRecords.find((record) => record.name === "neurovault.eth")?.name ?? ensRecords[0]?.name ?? null,
+  };
+
+  const crosschainSummary = {
+    total: crosschainQueue.length,
+    queued: crosschainQueue.filter((item) => item.status === "queued").length,
+    bridging: crosschainQueue.filter((item) => item.status === "bridging").length,
+    settled: crosschainQueue.filter((item) => item.status === "settled").length,
+    bridge: "Hyperbridge",
+  };
+
+  return { runtime, agentSummary, crosschainSummary };
+}
+
+async function fallbackReply(command: string, snapshot: VaultSnapshot) {
   const lower = command.toLowerCase();
-  const agentSummary = getExternalAgentSummary();
-  const crosschainSummary = getCrossChainSummary();
+  const { agentSummary, crosschainSummary } = await buildRuntimeSummaries();
 
   const ensMatch = command.trim().match(/^register\s+ens\s+([a-z0-9-]+\.eth)$/i);
   if (ensMatch) {
@@ -85,7 +109,7 @@ function fallbackReply(command: string, snapshot: VaultSnapshot) {
   }
 
   if (lower.includes("bifrost") || lower.includes("vdot") || lower.includes("slpx")) {
-    return `Bifrost SLPx: protocol=active | vDOT APY=~12-15% | min=10 xcDOT | route=Hyperbridge→Bifrost parachain | delivery=~45-60s after tx confirmation`;
+    return `Bifrost SLPx: protocol=active | vPAS/vDOT-style staking route active | delivery depends on governance + bridge confirmation`;
   }
 
   if (
@@ -94,7 +118,7 @@ function fallbackReply(command: string, snapshot: VaultSnapshot) {
     lower.includes("strategy") ||
     lower.includes("plan")
   ) {
-    return "Rebalance suggestion: shift 5% from DOT to USDC over 2 tranches; reason: reduce volatility exposure while preserving yield target (confidence 72%).";
+    return "Rebalance suggestion: shift 5% from PAS to USDC over 2 tranches; reason: reduce volatility exposure while preserving yield target (confidence 72%).";
   }
 
   return "Unknown command. Try: treasury status, stake <amount> <token>, governance queue, agent status, crosschain queue, bifrost status, register ens <name>.eth, resolve ens <name>.eth [mainnet|sepolia], suggest rebalance plan";
@@ -110,11 +134,10 @@ function isAdvisoryCommand(command: string): boolean {
   );
 }
 
-function deterministicReply(command: string, snapshot: VaultSnapshot): string | null {
+async function deterministicReply(command: string, snapshot: VaultSnapshot): Promise<string | null> {
   const input = command.trim();
   const lower = input.toLowerCase();
-  const agentSummary = getExternalAgentSummary();
-  const crosschainSummary = getCrossChainSummary();
+  const { agentSummary, crosschainSummary } = await buildRuntimeSummaries();
 
   if (lower === "treasury status") {
     return `Treasury: $${snapshot.totalValueUsd.toLocaleString()} | PAS ${snapshot.dotAllocationPct}% | USDC ${snapshot.usdcAllocationPct}% | APY ${snapshot.apyPct}% | ${snapshot.stakers} stakers`;
@@ -132,12 +155,6 @@ function deterministicReply(command: string, snapshot: VaultSnapshot): string | 
     return `Cross-chain queue: ${crosschainSummary.queued} queued, ${crosschainSummary.bridging} bridging, ${crosschainSummary.settled} settled via ${crosschainSummary.bridge}`;
   }
 
-  const ensMatch = input.match(/^register\s+ens\s+([a-z0-9-]+\.eth)$/i);
-  if (ensMatch) {
-    const target = ensMatch[1].toLowerCase();
-    return `ENS registration queued: ${target}`;
-  }
-
   const stakeMatch = input.match(/^stake\s+(\d+(?:\.\d+)?)\s+(DOT|USDC|PAS)$/i);
   if (stakeMatch) {
     const amount = stakeMatch[1];
@@ -146,12 +163,12 @@ function deterministicReply(command: string, snapshot: VaultSnapshot): string | 
   }
 
   if (lower === "bifrost status" || lower === "bifrost" || lower === "vdot status") {
-    return `Bifrost SLPx: protocol=active | vDOT APY=~12-15% | min=10 xcDOT | route=Hyperbridge→Bifrost parachain | delivery=~45-60s after tx confirmation`;
+    return `Bifrost SLPx: governance proposals are live; execution path depends on approved bridge/runtime integration`;
   }
 
   if (lower.startsWith("bifrost stake ")) {
     const parts = lower.replace("bifrost stake ", "").trim();
-    return `Bifrost stake queued: ${parts} xcDOT → vDOT via SLPx create_order() | route: Polkadot Hub → Hyperbridge → Bifrost | estimated delivery: 45-60s`;
+    return `Bifrost stake queued: ${parts} PAS via the configured bridge/staking route | governance approval and bridge execution required`;
   }
 
   return null;
@@ -184,28 +201,36 @@ export async function POST(req: NextRequest) {
 
     const ensMatch = command.match(/^register\s+ens\s+([a-z0-9-]+\.eth)$/i);
     if (ensMatch) {
-      if (!allowLocalFallback) {
+      if (!requesterAddress || !/^0x[a-fA-F0-9]{40}$/.test(requesterAddress)) {
+        return NextResponse.json({ error: "Valid requesterAddress required for ENS registration" }, { status: 400 });
+      }
+
+      let result;
+      try {
+        result = await registerEnsNameOnchain({
+          name: ensMatch[1].toLowerCase(),
+          owner: requesterAddress,
+          role: "staker",
+          description: "Registered from NeuroVault bot console",
+        });
+      } catch (err) {
+        if (!allowLocalFallback) {
+          return NextResponse.json(
+            {
+              error: "ENS registration endpoint is not wired for on-chain writes",
+              details: String(err),
+            },
+            { status: 501 }
+          );
+        }
+
         return NextResponse.json(
-          {
-            error: "ENS registration endpoint is not wired for on-chain writes",
-            details: "Enable ALLOW_LOCAL_FALLBACK=true to use local registry or integrate registrar contract writes",
-          },
+          { error: "ENS registration failed", details: String(err) },
           { status: 501 }
         );
       }
 
-      const result = registerEnsName({
-        name: ensMatch[1],
-        owner: requesterAddress || "bot-console",
-      });
-
-      if (!result.ok) {
-        return NextResponse.json({ error: result.error }, { status: 400 });
-      }
-
-      const reply = result.alreadyExists
-        ? `ENS already registered: ${result.record.name}`
-        : `ENS registered: ${result.record.name} (tx ${result.record.txHash.slice(0, 12)}...)`;
+      const reply = `ENS registered on-chain: ${ensMatch[1].toLowerCase()} (tx ${String(result.txHash).slice(0, 12)}...)`;
 
       let lit = null;
       try {
@@ -221,7 +246,7 @@ export async function POST(req: NextRequest) {
         reply,
         provider: "deterministic",
         action: "ens_register",
-        record: result.record,
+        record: result,
         lit,
       });
     }
@@ -255,7 +280,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const deterministic = deterministicReply(command, snapshot);
+    const deterministic = await deterministicReply(command, snapshot);
     if (deterministic) {
       console.log(`[BOT] Using deterministic reply`);
       let lit = null;
@@ -272,7 +297,7 @@ export async function POST(req: NextRequest) {
 
     if (!GEMINI_API_KEY) {
       console.log(`[BOT] No Gemini API key, using fallback`);
-      const fallback = fallbackReply(command, snapshot);
+      const fallback = await fallbackReply(command, snapshot);
       let lit = null;
       try {
         lit = await encryptWithLit({
@@ -300,7 +325,7 @@ export async function POST(req: NextRequest) {
     const model = await resolveGeminiModel(GEMINI_API_KEY);
     if (!model) {
       console.log(`[BOT] No compatible Gemini model found, using fallback`);
-      const fallback = fallbackReply(command, snapshot);
+      const fallback = await fallbackReply(command, snapshot);
       let lit = null;
       try {
         lit = await encryptWithLit({
@@ -348,7 +373,7 @@ export async function POST(req: NextRequest) {
       console.error(`[BOT] Gemini request failed with status ${response.status}`);
       const errorText = await response.text().catch(() => "");
       console.error(`[BOT] Gemini error: ${errorText}`);
-      const fallback = fallbackReply(command, snapshot);
+      const fallback = await fallbackReply(command, snapshot);
       let lit = null;
       try {
         lit = await encryptWithLit({
@@ -380,7 +405,7 @@ export async function POST(req: NextRequest) {
 
     if (advisory && (!reply || reply.length < 20)) {
       console.log(`[BOT] Gemini advisory response too short, using fallback`);
-      const fallback = "Rebalance suggestion: shift 5% from DOT to USDC over 2 tranches; reason: reduce volatility while preserving yield target (confidence 72%).";
+      const fallback = "Rebalance suggestion: shift 5% from PAS to USDC over 2 tranches; reason: reduce volatility while preserving yield target (confidence 72%).";
       let lit = null;
       try {
         lit = await encryptWithLit({
@@ -401,7 +426,7 @@ export async function POST(req: NextRequest) {
 
     if (!reply) {
       console.log(`[BOT] Gemini returned empty response, using fallback`);
-      const fallback = fallbackReply(command, snapshot);
+      const fallback = await fallbackReply(command, snapshot);
       let lit = null;
       try {
         lit = await encryptWithLit({

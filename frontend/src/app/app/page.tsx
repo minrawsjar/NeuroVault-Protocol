@@ -22,7 +22,7 @@ import {
 import ActivityFeed from "@/components/ActivityFeed";
 import GoalsPanel from "@/components/GoalsPanel";
 import { useWallet } from "@/components/SimpleWallet";
-import { useNeuroVaultContract, TreasuryState, Proposal, StakerInfo } from "@/hooks/useNeuroVault";
+import { useNeuroVaultContract, TreasuryState, Proposal, StakerInfo, Goal } from "@/hooks/useNeuroVault";
 
 type ActivityItem = {
   id: string;
@@ -44,6 +44,7 @@ export default function AppPage() {
     getRecentProposals,
     getStakerInfo,
     getTokenBalances,
+    getActiveGoals,
     isLoading,
     error,
   } = useNeuroVaultContract();
@@ -53,6 +54,7 @@ export default function AppPage() {
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [stakerInfo, setStakerInfo] = useState<StakerInfo | null>(null);
   const [tokenBalances, setTokenBalances] = useState<{ pas: string; usdc: string } | null>(null);
+  const [goals, setGoals] = useState<Goal[]>([]);
   const [isDataLoading, setIsDataLoading] = useState(true);
 
   const [activities, setActivities] = useState<ActivityItem[]>([
@@ -155,6 +157,9 @@ export default function AppPage() {
         if (balances) {
           setTokenBalances(balances);
         }
+
+        const activeGoals = await getActiveGoals();
+        setGoals(activeGoals);
       } catch (err) {
         console.error("Error loading contract data:", err);
       } finally {
@@ -163,7 +168,7 @@ export default function AppPage() {
     };
 
     loadContractData();
-  }, [isConnected, address, getTreasuryState, getRecentProposals, getStakerInfo, getTokenBalances]);
+  }, [isConnected, address, getTreasuryState, getRecentProposals, getStakerInfo, getTokenBalances, getActiveGoals]);
 
   // Load other data
   useEffect(() => {
@@ -234,6 +239,19 @@ export default function AppPage() {
                 ? "Fallback agent registry"
                 : "Agent status loaded",
         });
+        if (data?.runtime?.lastCycleResult?.timestamp) {
+          setActivities((prev) => {
+            const agentItem: ActivityItem = {
+              id: `agent-${String(data.runtime.lastCycleResult.cycleNumber ?? "latest")}`,
+              type: "agent_cycle",
+              message: `Agent cycle: ${String(data.runtime.lastCycleResult.action ?? "unknown")} (${Math.round(Number(data.runtime.lastCycleResult.confidence ?? 0) * 100)}% confidence)`,
+              timestamp: new Date(data.runtime.lastCycleResult.timestamp).toLocaleString(),
+              txHash: data.runtime.lastCycleResult.ipfsHash || undefined,
+            };
+
+            return [agentItem, ...prev.filter((item) => item.id !== agentItem.id)].slice(0, 8);
+          });
+        }
       } catch {
         setAgentIntegration({
           source: "unavailable",
@@ -702,12 +720,12 @@ export default function AppPage() {
                 <span className="text-white font-semibold">SLPx</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-zinc-500">vDOT APY</span>
-                <span className="text-emerald-400 font-semibold">~12–15%</span>
+                <span className="text-zinc-500">Staking Route</span>
+                <span className="text-emerald-400 font-semibold">Bifrost style</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-zinc-500">Min Stake</span>
-                <span className="text-zinc-300 font-semibold">10 xcDOT</span>
+                <span className="text-zinc-500">Base Asset</span>
+                <span className="text-zinc-300 font-semibold">PAS</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-zinc-500">Delivery</span>
@@ -720,7 +738,7 @@ export default function AppPage() {
             </div>
             <div className="mt-4 pt-3 border-t border-zinc-800">
               <p className="text-xs text-zinc-500">
-                AI agent auto-stakes DOT via cross-chain ISMP message when yield opportunity is detected.
+                The runtime proposes PAS staking actions and relies on governance plus bridge execution to carry them out.
               </p>
             </div>
           </div>
@@ -733,7 +751,7 @@ export default function AppPage() {
         </div>
         <div className="space-y-4">
           <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
-            <GoalsPanel />
+            <GoalsPanel goals={goals.map((goal) => ({ id: goal.id, text: goal.text, status: "active" as const }))} />
           </div>
           <Link href="/app/vote" className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4 flex items-center justify-between hover:border-zinc-600 transition-colors">
             <div>

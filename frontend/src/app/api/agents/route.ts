@@ -1,57 +1,86 @@
 import { NextResponse } from "next/server";
-import { getExternalAgents, getExternalAgentSummary } from "@/lib/agents";
+import { CONTRACTS } from "@/lib/contracts";
+import { getAgentRuntimeStatus, getEnsRecordsOnchain } from "@/lib/protocol-data";
 
 export async function GET() {
   const allowLocalFallback = (process.env.ALLOW_LOCAL_FALLBACK || "false").toLowerCase() === "true";
-  const agentApiUrl = (process.env.AGENT_API_URL || "").trim();
+  const configuredAgentAddress = CONTRACTS.paseo.agentAddress.toLowerCase();
 
-  if (agentApiUrl) {
-    try {
-      const res = await fetch(`${agentApiUrl.replace(/\/$/, "")}/status`, {
-        headers: { "Content-Type": "application/json" },
-        cache: "no-store",
-      });
+  try {
+    const [runtime, ensRecords] = await Promise.all([
+      getAgentRuntimeStatus().catch(() => null),
+      getEnsRecordsOnchain().catch(() => []),
+    ]);
 
-      if (!res.ok) {
-        throw new Error(`Agent status request failed (${res.status})`);
-      }
+    const agentRecords = ensRecords.filter(
+      (record) =>
+        record.role.toLowerCase().includes("agent") ||
+        record.endpoint.trim().length > 0 ||
+        record.addr.toLowerCase() === configuredAgentAddress
+    );
 
-      const status = await res.json();
-      const cycleInProgress = Boolean(status?.cycleInProgress);
-      const isRunning = Boolean(status?.isRunning);
+    const agents = (agentRecords.length > 0 ? agentRecords : [{
+      addr: CONTRACTS.paseo.agentAddress,
+      name: "neurovault.eth",
+      role: "agent",
+      description: "NeuroVault runtime agent",
+      endpoint: (process.env.AGENT_API_URL || "").trim(),
+      registeredAt: 0,
+      active: true,
+    }]).map((record) => {
+      const isPrimary = record.addr.toLowerCase() === configuredAgentAddress || record.name === "neurovault.eth";
+      const status = isPrimary && runtime
+        ? runtime.isRunning
+          ? runtime.cycleInProgress ? "degraded" : "active"
+          : "offline"
+        : record.active
+          ? "active"
+          : "offline";
 
-      return NextResponse.json({
-        agents: [
-          {
-            id: "ag-live-001",
-            name: "NeuroVault Runtime Agent",
-            ensIdentity: "neurovault.eth",
-            strategy: "yield",
-            network: "Polkadot Hub",
-            status: isRunning ? (cycleInProgress ? "degraded" : "active") : "offline",
-            lastHeartbeat: status?.lastCycleResult?.timestamp || "unknown",
-          },
-        ],
-        summary: {
-          total: 1,
-          active: isRunning && !cycleInProgress ? 1 : 0,
-          degraded: isRunning && cycleInProgress ? 1 : 0,
-          offline: isRunning ? 0 : 1,
-          ensReady: true,
-          primaryEns: "neurovault.eth",
-          accessMode: "wallet+role",
-          accessIndependentOfEns: true,
-        },
-        source: "integration",
-        updatedAt: new Date().toISOString(),
-      });
-    } catch (err) {
-      if (!allowLocalFallback) {
-        return NextResponse.json(
-          { error: "Agent integration unavailable", details: String(err) },
-          { status: 503 }
-        );
-      }
+      return {
+        id: `ag-${record.addr.toLowerCase()}`,
+        name: record.description || record.name,
+        ensIdentity: record.name,
+        strategy: "yield" as const,
+        network: "Polkadot Hub",
+        status,
+        lastHeartbeat: isPrimary && runtime?.lastCycleResult?.timestamp
+          ? runtime.lastCycleResult.timestamp
+          : record.registeredAt
+            ? new Date(record.registeredAt * 1000).toISOString()
+            : "unknown",
+        endpoint: record.endpoint || null,
+        address: record.addr,
+        role: record.role,
+      };
+    });
+
+    const summary = {
+      total: agents.length,
+      active: agents.filter((agent) => agent.status === "active").length,
+      degraded: agents.filter((agent) => agent.status === "degraded").length,
+      offline: agents.filter((agent) => agent.status === "offline").length,
+      ensReady: agentRecords.length > 0,
+      primaryEns: agentRecords.find((record) => record.addr.toLowerCase() === configuredAgentAddress)?.name
+        ?? agentRecords[0]?.name
+        ?? null,
+      accessMode: "wallet+role",
+      accessIndependentOfEns: true,
+    };
+
+    return NextResponse.json({
+      agents,
+      summary,
+      runtime,
+      source: runtime ? "integration" : "onchain",
+      updatedAt: new Date().toISOString(),
+    });
+  } catch (err) {
+    if (!allowLocalFallback) {
+      return NextResponse.json(
+        { error: "Agent integration unavailable", details: String(err) },
+        { status: 503 }
+      );
     }
   }
 
@@ -62,12 +91,18 @@ export async function GET() {
     );
   }
 
-  const agents = getExternalAgents();
-  const summary = getExternalAgentSummary();
-
   return NextResponse.json({
-    agents,
-    summary,
+    agents: [],
+    summary: {
+      total: 0,
+      active: 0,
+      degraded: 0,
+      offline: 0,
+      ensReady: false,
+      primaryEns: null,
+      accessMode: "wallet+role",
+      accessIndependentOfEns: true,
+    },
     source: "fallback",
     updatedAt: new Date().toISOString(),
   });

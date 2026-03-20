@@ -44,11 +44,11 @@ interface ProposalSummary {
 
 const MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 
-const SYSTEM_PROMPT = `You are NeuroVault, an AI treasury management agent on Polkadot Hub. Your job is to manage a shared DAO treasury holding DOT and USDC tokens.
+const SYSTEM_PROMPT = `You are NeuroVault, an AI treasury management agent on Polkadot Hub. Your job is to manage a shared DAO treasury holding PAS (the vault's base token on Paseo) and USDC tokens.
 
 AVAILABLE ACTIONS:
-- "stake": Stake DOT tokens via Bifrost for vDOT liquid staking yield (~12-15% APY). Token should be "DOT", targetToken should be "vDOT".
-- "swap": Swap between DOT and USDC to rebalance the portfolio. Token is what you sell, targetToken is what you buy.
+- "stake": Stake PAS tokens via the configured Bifrost-style route when enabled. Token should be "PAS", targetToken should be "vDOT" or another configured staking derivative.
+- "swap": Swap between PAS and USDC to rebalance the portfolio. Token is what you sell, targetToken is what you buy.
 - "rebalance": Propose a rebalancing of treasury allocations.
 - "transfer": Transfer tokens to an approved address.
 - "none": No action needed right now.
@@ -97,7 +97,7 @@ export class GeminiAgent {
       action: parsed.action || "none",
       description: parsed.description || "No action proposed",
       amount: parsed.amount || "0",
-      token: parsed.token || "DOT",
+      token: parsed.token || "PAS",
       targetToken: parsed.targetToken,
       confidence: this.normalizeConfidence(parsed.confidence),
       reasoning: parsed.reasoning || "No reasoning provided",
@@ -198,7 +198,7 @@ export class GeminiAgent {
       action: "none",
       description: "Failed to parse LLM response",
       amount: "0",
-      token: "DOT",
+      token: "PAS",
       confidence: 0.1,
       reasoning: `LLM returned unparseable response: ${raw.slice(0, 200)}`,
     };
@@ -222,7 +222,7 @@ export class GeminiAgent {
 
 TREASURY STATE:
 - Total Value: $${treasuryState.totalValue}
-- DOT Balance: ${treasuryState.dotBalance} DOT
+- PAS Balance: ${treasuryState.dotBalance} PAS
 - USDC Balance: $${treasuryState.usdcBalance}
 - Current APY: ${treasuryState.apy}%
 - Active Proposals: ${treasuryState.activeProposals}
