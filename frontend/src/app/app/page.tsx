@@ -7,9 +7,7 @@ import {
   ArrowUpRight,
   Bot,
   ChevronRight,
-  Clock,
   Cpu,
-  FileText,
   Network,
   PieChart,
   Shield,
@@ -32,6 +30,11 @@ type ActivityItem = {
   message: string;
   timestamp: string;
   txHash?: string;
+};
+
+type IntegrationStatus = {
+  source: "onchain" | "http" | "integration" | "fallback" | "mock" | "unavailable";
+  message: string;
 };
 
 export default function AppPage() {
@@ -66,6 +69,10 @@ export default function AppPage() {
     stakers: 47,
     activeProposals: 3,
   });
+  const [vaultIntegration, setVaultIntegration] = useState<IntegrationStatus>({
+    source: "unavailable",
+    message: "Awaiting vault status",
+  });
 
   const [agentSummary, setAgentSummary] = useState({
     total: 0,
@@ -77,6 +84,10 @@ export default function AppPage() {
     accessMode: "wallet+role",
     accessIndependentOfEns: true,
   });
+  const [agentIntegration, setAgentIntegration] = useState<IntegrationStatus>({
+    source: "unavailable",
+    message: "Awaiting agent status",
+  });
 
   const [crosschainSummary, setCrosschainSummary] = useState({
     total: 0,
@@ -84,6 +95,10 @@ export default function AppPage() {
     bridging: 0,
     settled: 0,
     bridge: "Hyperbridge",
+  });
+  const [crosschainIntegration, setCrosschainIntegration] = useState<IntegrationStatus>({
+    source: "unavailable",
+    message: "Awaiting cross-chain status",
   });
 
   const [command, setCommand] = useState("treasury status");
@@ -119,7 +134,7 @@ export default function AppPage() {
           // Build activity feed from real proposals
           const actionNames = ["Swap", "Stake", "Transfer", "Rebalance", "None"];
           const statusNames = ["Pending", "Approved", "Rejected", "Executed", "Expired"];
-          const feed: ActivityItem[] = recentProposals.map((p, i) => ({
+          const feed: ActivityItem[] = recentProposals.map((p) => ({
             id: `p-${p.id}`,
             type: p.status === 3 ? "execution" : p.status === 1 ? "vote" : "proposal",
             message: `#${p.id} ${actionNames[p.actionType] ?? "Proposal"}: ${p.description.slice(0, 60)} — ${statusNames[p.status]}`,
@@ -155,7 +170,13 @@ export default function AppPage() {
     const loadVault = async () => {
       try {
         const res = await fetch("/api/vault/status");
-        if (!res.ok) return;
+        if (!res.ok) {
+          setVaultIntegration({
+            source: "unavailable",
+            message: `Vault route unavailable (${res.status})`,
+          });
+          return;
+        }
         const data = await res.json();
         setVaultStats((prev) => ({
           ...prev,
@@ -163,15 +184,35 @@ export default function AppPage() {
           dotAllocationPct: Number(data?.dotAllocationPct ?? 62),
           usdcAllocationPct: Number(data?.usdcAllocationPct ?? 38),
         }));
+        setVaultIntegration({
+          source: data?.source ?? "unavailable",
+          message:
+            data?.source === "onchain"
+              ? "On-chain vault snapshot"
+              : data?.source === "http"
+                ? "Vault data proxied from HTTP source"
+                : data?.source === "mock"
+                  ? "Vault route is serving mock data"
+                  : "Vault status loaded",
+        });
       } catch {
-        // keep fallback UI values
+        setVaultIntegration({
+          source: "unavailable",
+          message: "Vault route failed; showing UI defaults",
+        });
       }
     };
 
     const loadAgents = async () => {
       try {
         const res = await fetch("/api/agents");
-        if (!res.ok) return;
+        if (!res.ok) {
+          setAgentIntegration({
+            source: "unavailable",
+            message: `Agent route unavailable (${res.status})`,
+          });
+          return;
+        }
         const data = await res.json();
         if (!data?.summary) return;
         setAgentSummary({
@@ -184,15 +225,33 @@ export default function AppPage() {
           accessMode: String(data.summary.accessMode ?? "wallet+role"),
           accessIndependentOfEns: Boolean(data.summary.accessIndependentOfEns ?? true),
         });
+        setAgentIntegration({
+          source: data?.source ?? "unavailable",
+          message:
+            data?.source === "integration"
+              ? "Live agent integration"
+              : data?.source === "fallback"
+                ? "Fallback agent registry"
+                : "Agent status loaded",
+        });
       } catch {
-        // keep fallback UI values
+        setAgentIntegration({
+          source: "unavailable",
+          message: "Agent route failed; summary may be incomplete",
+        });
       }
     };
 
     const loadCrosschain = async () => {
       try {
         const res = await fetch("/api/crosschain");
-        if (!res.ok) return;
+        if (!res.ok) {
+          setCrosschainIntegration({
+            source: "unavailable",
+            message: `Cross-chain route unavailable (${res.status})`,
+          });
+          return;
+        }
         const data = await res.json();
         if (!data?.summary) return;
         setCrosschainSummary({
@@ -202,8 +261,20 @@ export default function AppPage() {
           settled: Number(data.summary.settled ?? 0),
           bridge: String(data.summary.bridge ?? "Hyperbridge"),
         });
+        setCrosschainIntegration({
+          source: data?.source ?? "unavailable",
+          message:
+            data?.source === "integration"
+              ? "Live cross-chain integration"
+              : data?.source === "fallback"
+                ? "Fallback transfer queue"
+                : "Cross-chain status loaded",
+        });
       } catch {
-        // keep fallback UI values
+        setCrosschainIntegration({
+          source: "unavailable",
+          message: "Cross-chain route failed; summary may be incomplete",
+        });
       }
     };
 
@@ -339,6 +410,7 @@ export default function AppPage() {
             <p className="text-sm text-zinc-400 mt-2">
               {treasuryState ? vaultStats.stakers : "--"} stakers • On-chain verified
             </p>
+            <p className="text-xs text-zinc-500 mt-1">{vaultIntegration.message}</p>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -570,6 +642,10 @@ export default function AppPage() {
                 </span>
               </div>
               <div className="flex justify-between">
+                <span className="text-zinc-500">Data Source</span>
+                <span className="text-zinc-300 font-semibold capitalize">{agentIntegration.source}</span>
+              </div>
+              <div className="flex justify-between">
                 <span className="text-zinc-500">ENS Required</span>
                 <span className="text-zinc-300 font-semibold">
                   {agentSummary.accessIndependentOfEns ? "No" : "Yes"}
@@ -581,6 +657,9 @@ export default function AppPage() {
                   <span className="text-zinc-300 font-semibold">{agentSummary.primaryEns}</span>
                 </div>
               ) : null}
+            </div>
+            <div className="mt-4 pt-3 border-t border-zinc-800">
+              <p className="text-xs text-zinc-500">{agentIntegration.message}</p>
             </div>
           </div>
 
@@ -605,6 +684,11 @@ export default function AppPage() {
                 <span className="text-zinc-500">Bridge</span>
                 <span className="text-zinc-300 font-semibold">{crosschainSummary.bridge}</span>
               </div>
+            </div>
+            <div className="mt-4 pt-3 border-t border-zinc-800">
+              <p className="text-xs text-zinc-500">
+                {crosschainIntegration.message} ({crosschainIntegration.source})
+              </p>
             </div>
           </div>
 

@@ -2,3 +2,4 @@
 /* tslint:disable */
 /* eslint-disable */
 export { IBifrostVToken__factory } from "./IBifrostVToken__factory";
+export { ISLPx__factory } from "./ISLPx__factory";

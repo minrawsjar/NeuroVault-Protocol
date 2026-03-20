@@ -62,6 +62,10 @@ declare module "hardhat/types/runtime" {
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.IBifrostVToken__factory>;
     getContractFactory(
+      name: "ISLPx",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.ISLPx__factory>;
+    getContractFactory(
       name: "IIsmpDispatch",
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.IIsmpDispatch__factory>;
@@ -143,6 +147,11 @@ declare module "hardhat/types/runtime" {
       signer?: ethers.Signer
     ): Promise<Contracts.IBifrostVToken>;
     getContractAt(
+      name: "ISLPx",
+      address: string | ethers.Addressable,
+      signer?: ethers.Signer
+    ): Promise<Contracts.ISLPx>;
+    getContractAt(
       name: "IIsmpDispatch",
       address: string | ethers.Addressable,
       signer?: ethers.Signer
@@ -217,6 +226,10 @@ declare module "hardhat/types/runtime" {
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.IBifrostVToken>;
     deployContract(
+      name: "ISLPx",
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.ISLPx>;
+    deployContract(
       name: "IIsmpDispatch",
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.IIsmpDispatch>;
@@ -297,6 +310,11 @@ declare module "hardhat/types/runtime" {
       args: any[],
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.IBifrostVToken>;
+    deployContract(
+      name: "ISLPx",
+      args: any[],
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.ISLPx>;
     deployContract(
       name: "IIsmpDispatch",
       args: any[],

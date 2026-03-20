@@ -20,7 +20,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { useWallet } from "@/components/SimpleWallet";
-import { useNeuroVaultContract, TreasuryState, StakerInfo } from "@/hooks/useNeuroVault";
+import { useNeuroVaultContract, StakerInfo } from "@/hooks/useNeuroVault";
 
 type Tab = "deposit" | "withdraw" | "goals";
 
@@ -128,7 +128,6 @@ export default function StakePage() {
   } = useNeuroVaultContract();
   
   // Real contract data
-  const [treasuryState, setTreasuryState] = useState<TreasuryState | null>(null);
   const [stakerInfo, setStakerInfo] = useState<StakerInfo | null>(null);
   const [tokenBalances, setTokenBalances] = useState<{ pas: string; usdc: string } | null>(null);
   const [isDataLoading, setIsDataLoading] = useState(true);
@@ -141,8 +140,7 @@ export default function StakePage() {
       setIsDataLoading(true);
       try {
         // Treasury state always loads (static RPC provider)
-        const treasury = await getTreasuryState();
-        if (treasury) setTreasuryState(treasury);
+        await getTreasuryState();
 
         // Balances & staker info need a wallet address
         if (address) {
@@ -178,12 +176,11 @@ export default function StakePage() {
       setStakeSuccess(`Successfully deposited ${depositAmount} ${depositToken}`);
       setDepositAmount("");
       // Refresh data
-      const [treasury, staker, balances] = await Promise.all([
+      const [, staker, balances] = await Promise.all([
         getTreasuryState(),
         getStakerInfo(address!),
         getTokenBalances(address!),
       ]);
-      if (treasury) setTreasuryState(treasury);
       if (staker) setStakerInfo(staker);
       if (balances) setTokenBalances(balances);
       setTimeout(() => setStakeSuccess(null), 5000);
@@ -386,7 +383,7 @@ export default function StakePage() {
           </div>
           <div className="flex-1">
             <h1 className="text-3xl md:text-4xl font-bold text-white mb-1">Stake & Govern</h1>
-            <p className="text-sm text-zinc-400">Deposit tokens, vote on proposals, and shape the AI agent's future</p>
+            <p className="text-sm text-zinc-400">Deposit tokens, vote on proposals, and shape the AI agent&apos;s future</p>
           </div>
         </div>
       </div>

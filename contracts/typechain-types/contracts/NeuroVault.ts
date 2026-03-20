@@ -116,6 +116,7 @@ export interface NeuroVaultInterface extends Interface {
       | "addGoal"
       | "agentAddress"
       | "approvedTargets"
+      | "autoFinalizeEnabled"
       | "bifrostDest"
       | "bifrostModule"
       | "currentApy"
@@ -140,10 +141,12 @@ export interface NeuroVaultInterface extends Interface {
       | "proposalCount"
       | "proposals"
       | "propose"
+      | "proposeWithDeadline"
       | "renounceOwnership"
       | "setAgentAddress"
       | "setApprovedTarget"
       | "setApy"
+      | "setAutoFinalizeEnabled"
       | "setBifrostRouting"
       | "setHyperbridgeDispatch"
       | "setVotingWindow"
@@ -208,6 +211,10 @@ export interface NeuroVaultInterface extends Interface {
   encodeFunctionData(
     functionFragment: "approvedTargets",
     values: [AddressLike]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "autoFinalizeEnabled",
+    values?: undefined
   ): string;
   encodeFunctionData(
     functionFragment: "bifrostDest",
@@ -302,6 +309,19 @@ export interface NeuroVaultInterface extends Interface {
     ]
   ): string;
   encodeFunctionData(
+    functionFragment: "proposeWithDeadline",
+    values: [
+      string,
+      BigNumberish,
+      string,
+      BigNumberish,
+      AddressLike,
+      AddressLike,
+      BigNumberish,
+      BigNumberish
+    ]
+  ): string;
+  encodeFunctionData(
     functionFragment: "renounceOwnership",
     values?: undefined
   ): string;
@@ -316,6 +336,10 @@ export interface NeuroVaultInterface extends Interface {
   encodeFunctionData(
     functionFragment: "setApy",
     values: [BigNumberish]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "setAutoFinalizeEnabled",
+    values: [boolean]
   ): string;
   encodeFunctionData(
     functionFragment: "setBifrostRouting",
@@ -398,6 +422,10 @@ export interface NeuroVaultInterface extends Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(
+    functionFragment: "autoFinalizeEnabled",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
     functionFragment: "bifrostDest",
     data: BytesLike
   ): Result;
@@ -470,6 +498,10 @@ export interface NeuroVaultInterface extends Interface {
   decodeFunctionResult(functionFragment: "proposals", data: BytesLike): Result;
   decodeFunctionResult(functionFragment: "propose", data: BytesLike): Result;
   decodeFunctionResult(
+    functionFragment: "proposeWithDeadline",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
     functionFragment: "renounceOwnership",
     data: BytesLike
   ): Result;
@@ -482,6 +514,10 @@ export interface NeuroVaultInterface extends Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(functionFragment: "setApy", data: BytesLike): Result;
+  decodeFunctionResult(
+    functionFragment: "setAutoFinalizeEnabled",
+    data: BytesLike
+  ): Result;
   decodeFunctionResult(
     functionFragment: "setBifrostRouting",
     data: BytesLike
@@ -793,6 +829,8 @@ export interface NeuroVault extends BaseContract {
 
   approvedTargets: TypedContractMethod<[arg0: AddressLike], [boolean], "view">;
 
+  autoFinalizeEnabled: TypedContractMethod<[], [boolean], "view">;
+
   bifrostDest: TypedContractMethod<[], [string], "view">;
 
   bifrostModule: TypedContractMethod<[], [string], "view">;
@@ -955,6 +993,21 @@ export interface NeuroVault extends BaseContract {
     "nonpayable"
   >;
 
+  proposeWithDeadline: TypedContractMethod<
+    [
+      ipfsHash: string,
+      actionType: BigNumberish,
+      description: string,
+      amount: BigNumberish,
+      token: AddressLike,
+      targetToken: AddressLike,
+      confidence: BigNumberish,
+      customDeadline: BigNumberish
+    ],
+    [bigint],
+    "nonpayable"
+  >;
+
   renounceOwnership: TypedContractMethod<[], [void], "nonpayable">;
 
   setAgentAddress: TypedContractMethod<
@@ -970,6 +1023,12 @@ export interface NeuroVault extends BaseContract {
   >;
 
   setApy: TypedContractMethod<[apyBps: BigNumberish], [void], "nonpayable">;
+
+  setAutoFinalizeEnabled: TypedContractMethod<
+    [enabled: boolean],
+    [void],
+    "nonpayable"
+  >;
 
   setBifrostRouting: TypedContractMethod<
     [dest: BytesLike, module: BytesLike],
@@ -1062,6 +1121,9 @@ export interface NeuroVault extends BaseContract {
   getFunction(
     nameOrSignature: "approvedTargets"
   ): TypedContractMethod<[arg0: AddressLike], [boolean], "view">;
+  getFunction(
+    nameOrSignature: "autoFinalizeEnabled"
+  ): TypedContractMethod<[], [boolean], "view">;
   getFunction(
     nameOrSignature: "bifrostDest"
   ): TypedContractMethod<[], [string], "view">;
@@ -1229,6 +1291,22 @@ export interface NeuroVault extends BaseContract {
     "nonpayable"
   >;
   getFunction(
+    nameOrSignature: "proposeWithDeadline"
+  ): TypedContractMethod<
+    [
+      ipfsHash: string,
+      actionType: BigNumberish,
+      description: string,
+      amount: BigNumberish,
+      token: AddressLike,
+      targetToken: AddressLike,
+      confidence: BigNumberish,
+      customDeadline: BigNumberish
+    ],
+    [bigint],
+    "nonpayable"
+  >;
+  getFunction(
     nameOrSignature: "renounceOwnership"
   ): TypedContractMethod<[], [void], "nonpayable">;
   getFunction(
@@ -1244,6 +1322,9 @@ export interface NeuroVault extends BaseContract {
   getFunction(
     nameOrSignature: "setApy"
   ): TypedContractMethod<[apyBps: BigNumberish], [void], "nonpayable">;
+  getFunction(
+    nameOrSignature: "setAutoFinalizeEnabled"
+  ): TypedContractMethod<[enabled: boolean], [void], "nonpayable">;
   getFunction(
     nameOrSignature: "setBifrostRouting"
   ): TypedContractMethod<

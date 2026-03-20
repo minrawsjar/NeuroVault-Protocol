@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import {
   Activity,
   CheckCircle2,
@@ -16,6 +16,11 @@ import { useNeuroVaultContract, Proposal, StakerInfo } from "@/hooks/useNeuroVau
 
 // Status mapping from contract (0=Pending, 1=Approved, 2=Rejected, 3=Executed, 4=Expired)
 const STATUS_MAP = ["Pending", "Approved", "Rejected", "Executed", "Expired"];
+
+function subscribeToClock(onStoreChange: () => void) {
+  const intervalId = window.setInterval(onStoreChange, 60_000);
+  return () => window.clearInterval(intervalId);
+}
 
 export default function AppVotePage() {
   const { address, isConnected } = useWallet();
@@ -264,7 +269,8 @@ function ProposalCard({
   const forPercent = totalVotes > 0 ? (forVotes / totalVotes) * 100 : 0;
   const againstPercent = totalVotes > 0 ? (againstVotes / totalVotes) * 100 : 0;
   const isActive = proposal.status === 0; // Pending
-  const isExpired = proposal.votingDeadline < Date.now();
+  const currentTime = useSyncExternalStore(subscribeToClock, () => Date.now(), () => 0);
+  const isExpired = proposal.votingDeadline < currentTime;
 
   // Map action type to tag
   const actionTags = ["Swap", "Stake", "Transfer", "Rebalance", "None"];

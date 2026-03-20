@@ -3,7 +3,14 @@
 import { useState } from "react";
 import { useWallet } from "@/components/SimpleWallet";
 import { useNeuroVaultContract } from "@/hooks/useNeuroVault";
+import { CONTRACTS } from "@/lib/contracts";
 import { Loader2, AlertCircle, CheckCircle2, Coins, ArrowRight } from "lucide-react";
+
+const paseoContracts = CONTRACTS.paseo;
+
+function shortenAddress(address: string) {
+  return `${address.slice(0, 6)}...${address.slice(-4)}`;
+}
 
 export default function AdminPage() {
   const { address, isConnected } = useWallet();
@@ -214,15 +221,15 @@ export default function AdminPage() {
         <div className="space-y-1 text-xs font-mono">
           <div className="flex justify-between">
             <span className="text-zinc-500">NeuroVault:</span>
-            <span className="text-zinc-300">0xC6D0...54Ed</span>
+            <span className="text-zinc-300">{shortenAddress(paseoContracts.NeuroVault)}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-zinc-500">PAS Token:</span>
-            <span className="text-zinc-300">0x8caC...fEFE</span>
+            <span className="text-zinc-300">{shortenAddress(paseoContracts.PAS)}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-zinc-500">USDC Token:</span>
-            <span className="text-zinc-300">0xc394...a388</span>
+            <span className="text-zinc-300">{shortenAddress(paseoContracts.USDC)}</span>
           </div>
         </div>
       </div>

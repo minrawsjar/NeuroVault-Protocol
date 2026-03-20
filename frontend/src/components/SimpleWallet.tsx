@@ -1,22 +1,31 @@
 "use client";
 
-import { useMemo } from 'react';
-import { useEffect, useState } from 'react';
+import { useMemo, useState, useSyncExternalStore } from 'react';
 import { Wallet, Copy, LogOut, AlertCircle } from 'lucide-react';
 import { formatUnits } from 'viem';
 import { useAccount, useBalance, useConnect, useDisconnect } from 'wagmi';
+
+interface InjectedProvider {
+  isPhantom?: boolean;
+  isMetaMask?: boolean;
+  providers?: InjectedProvider[];
+}
+
+function subscribeToHydration() {
+  return () => {};
+}
 
 // Check for wallet conflicts
 function checkWalletConflicts(): string | null {
   if (typeof window === 'undefined') return null;
   
-  const ethereum = (window as any).ethereum;
+  const ethereum = window.ethereum as InjectedProvider | undefined;
   if (!ethereum) return null;
   
   // Check for multiple wallet providers
   const providers = ethereum.providers || [ethereum];
-  const isPhantom = ethereum.isPhantom || providers.some((p: any) => p?.isPhantom);
-  const isMetaMask = ethereum.isMetaMask || providers.some((p: any) => p?.isMetaMask);
+  const isPhantom = ethereum.isPhantom || providers.some((provider) => provider?.isPhantom);
+  const isMetaMask = ethereum.isMetaMask || providers.some((provider) => provider?.isMetaMask);
   
   if (isPhantom && isMetaMask) {
     return "Phantom and MetaMask detected. Please disable one to avoid conflicts.";
@@ -26,10 +35,11 @@ function checkWalletConflicts(): string | null {
 }
 
 export function useWallet() {
-  const [walletError, setWalletError] = useState<string | null>(null);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
   const { address, isConnected, chain } = useAccount();
   const { connect, connectors, isPending } = useConnect();
   const { disconnect } = useDisconnect();
+  const walletConflict = useMemo(() => checkWalletConflicts(), []);
   const { data: balanceData } = useBalance({
     address,
     chainId: 420420417, // Polkadot Hub TestNet
@@ -37,14 +47,6 @@ export function useWallet() {
       enabled: !!address,
     },
   });
-
-  // Check for conflicts on mount
-  useEffect(() => {
-    const conflict = checkWalletConflicts();
-    if (conflict) {
-      setWalletError(conflict);
-    }
-  }, []);
 
   const balance = useMemo(() => {
     if (!balanceData) {
@@ -66,10 +68,10 @@ export function useWallet() {
   };
 
   const connectWallet = () => {
-    setWalletError(null);
+    setConnectionError(null);
     
     if (connectors.length === 0) {
-      setWalletError("No wallet connectors available. Please install MetaMask or another wallet.");
+      setConnectionError("No wallet connectors available. Please install MetaMask or another wallet.");
       return;
     }
 
@@ -81,9 +83,10 @@ export function useWallet() {
     
     try {
       connect({ connector: metamaskConnector ?? injectedConnector ?? connectors[0] });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Connection error:", err);
-      setWalletError(err.message || "Failed to connect. Try refreshing the page.");
+      const message = err instanceof Error ? err.message : "Failed to connect. Try refreshing the page.";
+      setConnectionError(message);
     }
   };
 
@@ -93,7 +96,7 @@ export function useWallet() {
     chain,
     balance,
     isConnecting: isPending,
-    walletError,
+    walletError: connectionError ?? walletConflict,
     formatAddress,
     copyAddress,
     connect: connectWallet,
@@ -102,7 +105,7 @@ export function useWallet() {
 }
 
 export function WalletConnectButton() {
-  const [mounted, setMounted] = useState(false);
+  const mounted = useSyncExternalStore(subscribeToHydration, () => true, () => false);
   const { 
     isConnected, 
     address, 
@@ -114,10 +117,6 @@ export function WalletConnectButton() {
     isConnecting,
     walletError 
   } = useWallet();
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   if (!mounted) {
     return (

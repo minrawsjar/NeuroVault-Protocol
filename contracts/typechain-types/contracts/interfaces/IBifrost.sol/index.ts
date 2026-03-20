@@ -2,3 +2,4 @@
 /* tslint:disable */
 /* eslint-disable */
 export type { IBifrostVToken } from "./IBifrostVToken";
+export type { ISLPx } from "./ISLPx";

@@ -97,7 +97,11 @@ async function main() {
     agentAddress,
     bifrostDest,
     bifrostModule,
-  );
+    {
+      gasPrice: ethers.parseUnits("2000", "gwei"),
+      gasLimit: 8000000,
+    }
+      );
 
   await vault.waitForDeployment();
   const vaultAddress = await vault.getAddress();

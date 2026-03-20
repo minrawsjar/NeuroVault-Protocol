@@ -17,6 +17,7 @@ import { VaultSnapshot } from "@/lib/vault";
 export default function AppTreasuryPage() {
   const [vault, setVault] = useState<VaultSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
+  const [vaultMessage, setVaultMessage] = useState("Fetching vault snapshot");
 
   useEffect(() => {
     async function fetchVault() {
@@ -25,9 +26,21 @@ export default function AppTreasuryPage() {
         if (res.ok) {
           const data = await res.json();
           setVault(data);
+          setVaultMessage(
+            data?.source === "onchain"
+              ? "Live on-chain vault snapshot"
+              : data?.source === "http"
+                ? "Vault snapshot proxied from HTTP integration"
+                : data?.source === "mock"
+                  ? "Vault snapshot is currently mock data"
+                  : "Vault snapshot loaded"
+          );
+        } else {
+          setVaultMessage(`Vault route unavailable (${res.status}); showing UI defaults`);
         }
       } catch (err) {
         console.error("Error fetching vault:", err);
+        setVaultMessage("Vault route failed; showing UI defaults");
       } finally {
         setLoading(false);
       }
@@ -40,7 +53,14 @@ export default function AppTreasuryPage() {
   const usdcPct = vault?.usdcAllocationPct ?? 38;
   const apy = vault?.apyPct ?? 12.4;
   const stakers = vault?.stakers ?? 47;
-  const source = vault?.source === "mock" ? "Mock" : "Live network data";
+  const source =
+    vault?.source === "mock"
+      ? "Mock data"
+      : vault?.source === "http"
+        ? "HTTP integration"
+        : vault?.source === "onchain"
+          ? "On-chain"
+          : "UI defaults";
 
   const dotValue = tvl * (dotPct / 100);
   const usdcValue = tvl * (usdcPct / 100);
@@ -108,6 +128,7 @@ export default function AppTreasuryPage() {
                   </span>
                 </div>
                 <p className="text-sm text-zinc-400 mt-2">{stakers} stakers • {loading ? "Syncing..." : source}</p>
+                <p className="text-xs text-zinc-500 mt-1">{vaultMessage}</p>
               </div>
 
               <div className="flex space-x-4">
@@ -125,7 +146,7 @@ export default function AppTreasuryPage() {
 
           <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6">
             <h3 className="text-sm font-semibold text-zinc-400 uppercase tracking-widest mb-6 flex items-center">
-              <Clock size={16} className="mr-2 text-zinc-500" /> Recent Treasury Activity
+              <Clock size={16} className="mr-2 text-zinc-500" /> Recent Treasury Activity (Demo Feed)
             </h3>
             <div className="space-y-2">
               {recentActivity.map((item, i) => (

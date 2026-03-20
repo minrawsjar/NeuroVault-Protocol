@@ -30,6 +30,8 @@ export type { ReentrancyGuard } from "./@openzeppelin/contracts/utils/Reentrancy
 export { ReentrancyGuard__factory } from "./factories/@openzeppelin/contracts/utils/ReentrancyGuard__factory";
 export type { IBifrostVToken } from "./contracts/interfaces/IBifrost.sol/IBifrostVToken";
 export { IBifrostVToken__factory } from "./factories/contracts/interfaces/IBifrost.sol/IBifrostVToken__factory";
+export type { ISLPx } from "./contracts/interfaces/IBifrost.sol/ISLPx";
+export { ISLPx__factory } from "./factories/contracts/interfaces/IBifrost.sol/ISLPx__factory";
 export type { IIsmpDispatch } from "./contracts/interfaces/IHyperbridge.sol/IIsmpDispatch";
 export { IIsmpDispatch__factory } from "./factories/contracts/interfaces/IHyperbridge.sol/IIsmpDispatch__factory";
 export type { IIsmpModule } from "./contracts/interfaces/IHyperbridge.sol/IIsmpModule";

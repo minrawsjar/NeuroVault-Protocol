@@ -5,13 +5,22 @@ import { ethers } from "ethers";
 import { CONTRACTS, NEUROVAULT_ABI, ERC20_ABI } from "@/lib/contracts";
 
 declare global {
+  interface EthereumRequestArgs {
+    method: string;
+    params?: unknown[];
+  }
+
   interface Window {
     ethereum?: {
-      request: (args: { method: string; params?: any[] }) => Promise<any>;
+      request: (args: EthereumRequestArgs) => Promise<unknown>;
       on: (event: string, handler: (accounts: string[]) => void) => void;
       removeListener: (event: string, handler: (accounts: string[]) => void) => void;
     };
   }
+}
+
+function getErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
 }
 
 // Types
@@ -104,7 +113,7 @@ export function useNeuroVaultContract() {
       });
       window.location.reload();
       return true;
-    } catch (addError: any) {
+    } catch (addError: unknown) {
       console.error("Failed to add/switch network:", addError);
       // If add fails, try switch
       try {
@@ -301,9 +310,9 @@ export function useNeuroVaultContract() {
       console.log("Stake tx confirmed:", stakeReceipt?.hash);
       
       return true;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error staking:", err);
-      setError(err.message || "Failed to stake");
+      setError(getErrorMessage(err, "Failed to stake"));
       return false;
     } finally {
       setIsLoading(false);
@@ -338,9 +347,9 @@ export function useNeuroVaultContract() {
       await depositTx.wait();
       
       return true;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error depositing USDC:", err);
-      setError(err.message || "Failed to deposit USDC");
+      setError(getErrorMessage(err, "Failed to deposit USDC"));
       return false;
     } finally {
       setIsLoading(false);
@@ -359,9 +368,9 @@ export function useNeuroVaultContract() {
       const tx = await writeContract.unstake(parsedAmount);
       await tx.wait();
       return true;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error unstaking:", err);
-      setError(err.message || "Failed to unstake");
+      setError(getErrorMessage(err, "Failed to unstake"));
       return false;
     } finally {
       setIsLoading(false);
@@ -379,9 +388,9 @@ export function useNeuroVaultContract() {
       const tx = await writeContract.vote(proposalId, support);
       await tx.wait();
       return true;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error voting:", err);
-      setError(err.message || "Failed to vote");
+      setError(getErrorMessage(err, "Failed to vote"));
       return false;
     } finally {
       setIsLoading(false);
@@ -399,9 +408,9 @@ export function useNeuroVaultContract() {
       const tx = await writeContract.finalizeProposal(proposalId);
       await tx.wait();
       return true;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error finalizing proposal:", err);
-      setError(err.message || "Failed to finalize proposal");
+      setError(getErrorMessage(err, "Failed to finalize proposal"));
       return false;
     } finally {
       setIsLoading(false);
